@@ -21,7 +21,31 @@ const obtenerInventario = async (req, res) => {
     }
 };
 
+const actualizarStock = async (req, res) => {
+    try {
+        const { productoId, cantidad } = req.body;
+
+        const item = await Inventario.findOne({ productoId });
+
+        if (!item) {
+            return res.status(404).json({ mensaje: "Producto no encontrado en inventario" });
+        }
+
+        if (item.stock < cantidad) {
+            return res.status(400).json({ mensaje: "Stock insuficiente" });
+        }
+
+        item.stock -= cantidad;
+        await item.save();
+
+        res.json({ mensaje: "Stock actualizado", item });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 module.exports = {
     crearInventario,
-    obtenerInventario
+    obtenerInventario,
+    actualizarStock
 };
