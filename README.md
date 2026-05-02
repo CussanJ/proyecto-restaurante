@@ -1,4 +1,3 @@
-# proyecto-restaurante
 # Sistema de Gestión de Restaurante
 Sistema de gestión de pedidos, inventario y productos basado en microservicios y API REST.
 
