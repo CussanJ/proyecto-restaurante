@@ -1,7 +1,5 @@
-import axios from "axios";
+import axios from 'axios';
 
-const api = axios.create({
-  baseURL: "http://localhost:3001", // productos-service
-});
-
-export default api;
+export const productosApi = axios.create({ baseURL: 'http://localhost:3001' });
+export const pedidosApi = axios.create({ baseURL: 'http://localhost:3003' });
+export const inventarioApi = axios.create({ baseURL: 'http://localhost:3002' });

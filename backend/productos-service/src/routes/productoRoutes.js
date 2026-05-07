@@ -5,9 +5,11 @@ const {
     crearProducto,
     obtenerProductos,
     actualizarProducto,
-    eliminarProducto
+    eliminarProducto,
+    subirImagen,
 } = require('../controllers/productoController');
 
+router.post('/upload-imagen', subirImagen);
 router.post('/', crearProducto);
 router.get('/', obtenerProductos);
 router.put('/:id', actualizarProducto);
