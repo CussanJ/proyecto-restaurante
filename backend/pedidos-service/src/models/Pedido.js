@@ -1,23 +1,14 @@
 const mongoose = require('mongoose');
 
-<<<<<<< HEAD
-const detallePedidoSchema = new mongoose.Schema({
-=======
 const detalleSchema = new mongoose.Schema({
->>>>>>> 7f929fad72b15e0440dea75533dd85950f0da28d
     productoId: {
         type: String,
         required: true
     },
-<<<<<<< HEAD
-    nombre: String,
-    precio: Number,
-=======
     nombre: {
         type: String,
         required: true
     },
->>>>>>> 7f929fad72b15e0440dea75533dd85950f0da28d
     cantidad: {
         type: Number,
         required: true,
