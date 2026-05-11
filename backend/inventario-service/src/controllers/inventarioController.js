@@ -21,24 +21,71 @@ const obtenerInventario = async (req, res) => {
     }
 };
 
-const actualizarStock = async (req, res) => {
+// Validar stock (sin decrementar)
+const validarStock = async (req, res) => {
     try {
         const { productoId, cantidad } = req.body;
+
+        if (!productoId || !cantidad) {
+            return res.status(400).json({ error: 'productoId y cantidad son requeridos' });
+        }
 
         const item = await Inventario.findOne({ productoId });
 
         if (!item) {
-            return res.status(404).json({ mensaje: "Producto no encontrado en inventario" });
+            return res.status(404).json({ error: 'Producto no encontrado en inventario' });
         }
 
         if (item.stock < cantidad) {
-            return res.status(400).json({ mensaje: "Stock insuficiente" });
+            return res.status(400).json({
+                error: 'Stock insuficiente',
+                disponible: item.stock,
+                solicitado: cantidad
+            });
+        }
+
+        res.json({
+            mensaje: 'Stock disponible',
+            productoId,
+            disponible: item.stock,
+            solicitado: cantidad
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Actualizar stock (decrementar)
+const actualizarStock = async (req, res) => {
+    try {
+        const { productoId, cantidad } = req.body;
+
+        if (!productoId || !cantidad) {
+            return res.status(400).json({ error: 'productoId y cantidad son requeridos' });
+        }
+
+        const item = await Inventario.findOne({ productoId });
+
+        if (!item) {
+            return res.status(404).json({ error: 'Producto no encontrado en inventario' });
+        }
+
+        if (item.stock < cantidad) {
+            return res.status(400).json({
+                error: 'Stock insuficiente',
+                disponible: item.stock,
+                solicitado: cantidad
+            });
         }
 
         item.stock -= cantidad;
         await item.save();
 
-        res.json({ mensaje: "Stock actualizado", item });
+        res.json({
+            mensaje: 'Stock actualizado',
+            item
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -47,5 +94,6 @@ const actualizarStock = async (req, res) => {
 module.exports = {
     crearInventario,
     obtenerInventario,
+    validarStock,
     actualizarStock
 };
