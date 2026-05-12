@@ -1,88 +1,27 @@
 const mongoose = require('mongoose');
 
 const detalleSchema = new mongoose.Schema({
-    productoId: {
-        type: String,
-        required: true
-    },
-    nombre: {
-        type: String,
-        required: true
-    },
-    cantidad: {
-        type: Number,
-        required: true,
-        min: 1
-    },
-    precio: {
-        type: Number,
-        required: true,
-        min: 0
-    }
+    productoId: String,
+    nombre: String,
+    cantidad: Number,
+    precio: Number
 }, { _id: false });
 
 const ESTADOS_VALIDOS = ['pendiente', 'en preparacion', 'entregado', 'cancelado'];
 
 const pedidoSchema = new mongoose.Schema({
-    cliente: {
-        type: String,
-        required: true
-    },
+    cliente: String,
     detalle: {
         type: [detalleSchema],
-        required: true,
-        validate: {
-            validator: arr => Array.isArray(arr) && arr.length > 0,
-            message: 'El pedido debe tener al menos un item'
-        }
+        required: true
     },
-    total: {
-        type: Number,
-        required: true,
-        min: 0
-    },
+    total: Number,
     estado: {
         type: String,
         enum: ESTADOS_VALIDOS,
         default: 'pendiente'
     },
     fecha: {
-        type: Date,
-        default: Date.now
-    }
-}, { _id: false });
-
-const pedidoSchema = new mongoose.Schema({
-    items: [detallePedidoSchema],
-    estado: {
-        type: String,
-        enum: ['pendiente', 'en preparación', 'en camino', 'entregado'],
-        default: 'pendiente'
-    },
-    total: {
-        type: Number,
-        required: true
-    },
-    direccion: {
-        type: String,
-        required: true
-    },
-    referencia: String,
-    metodoPago: {
-        type: String,
-        enum: ['tarjeta', 'efectivo'],
-        default: 'efectivo'
-    },
-    cliente: {
-        nombre: String,
-        telefono: String,
-        email: String
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    updatedAt: {
         type: Date,
         default: Date.now
     }
