@@ -99,12 +99,35 @@ export default function Carrito() {
     setEnviando(true);
     setError(null);
     try {
-      for (const item of items) {
-        await pedidosApi.post('/pedidos', { productoId: item._id, cantidad: item.cantidad });
-      }
+      // Preparar items del carrito con información completa
+      const itemsFormato = items.map(item => ({
+        productoId: item._id,
+        nombre: item.nombre,
+        precio: item.precio,
+        cantidad: item.cantidad
+      }));
+
+      // Enviar TODO el pedido en UN SOLO POST
+      const respuesta = await pedidosApi.post('/pedidos', {
+        items: itemsFormato,
+        total,
+        direccion: direccion.trim(),
+        referencia: referencia.trim(),
+        metodoPago,
+        cliente: {
+          nombre: nombreTarjeta || 'Cliente',
+          email: '',
+          telefono: ''
+        }
+      });
+
+      // Obtener el ID del pedido creado
+      const pedidoId = respuesta.data.pedido._id;
+
+      // Guardar también en localStorage para compatibilidad
       const pedidosGuardados = JSON.parse(localStorage.getItem('pedidos') || '[]');
       const nuevoPedido = {
-        id: Date.now(),
+        id: pedidoId,
         items: [...items],
         total,
         estado: 'pendiente',
@@ -116,10 +139,14 @@ export default function Carrito() {
         metodoPago,
       };
       localStorage.setItem('pedidos', JSON.stringify([nuevoPedido, ...pedidosGuardados]));
+
+      // Limpiar y redirigir
       vaciarCarrito();
-      navigate('/pedido/' + nuevoPedido.id);
+      navigate('/pedido/' + pedidoId);
     } catch (err) {
-      setError(err.response?.data?.mensaje || 'Error al crear el pedido. Verifica que los servicios estén corriendo.');
+      const mensajeError = err.response?.data?.error || err.response?.data?.mensaje || 'Error al crear el pedido';
+      setError(mensajeError);
+      console.error('Error detallado:', err.response?.data || err.message);
     } finally {
       setEnviando(false);
     }

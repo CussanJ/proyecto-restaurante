@@ -9,6 +9,7 @@ const {
     eliminarPedido
 } = require('../controllers/pedidoController');
 
+// Crear pedido
 router.post('/', crearPedido);
 router.get('/', obtenerPedidos);
 router.get('/:id', obtenerPedidoPorId);
