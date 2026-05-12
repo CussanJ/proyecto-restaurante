@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import BottomNav from '../components/BottomNav';
+import { pedidosApi } from '../services/api';
 
 const mockPedidos = [
   {
@@ -36,11 +37,23 @@ const mockPedidos = [
 
 export default function PanelCocina() {
   const [pedidos, setPedidos] = useState([]);
+  const [historial, setHistorial] = useState([]);
 
-  const cargarPedidos = () => {
-    const guardados = JSON.parse(localStorage.getItem('pedidos') || '[]');
-    const activos = guardados.filter(p => p.estado !== 'entregado');
-    setPedidos(activos);
+  const cargarPedidos = async () => {
+    try {
+      const { data } = await pedidosApi.get('/pedidos');
+
+      setPedidos(
+        data.filter(p => p.estado !== 'entregado')
+      );
+
+      setHistorial(
+        data.filter(p => p.estado === 'entregado')
+      );
+
+    } catch (error) {
+      console.error('Error cargando pedidos:', error);
+    }
   };
 
   useEffect(() => {
@@ -49,21 +62,44 @@ export default function PanelCocina() {
     return () => clearInterval(intervalo);
   }, []);
 
-  const flujo = { pendiente: 'en preparación', 'en preparación': 'en camino', 'en camino': 'entregado' };
+  const flujo = {
+    pendiente: 'en preparacion',
+    'en preparacion': 'entregado'
+  };
 
-  const avanzarEstado = (pedidoId) => {
-    const guardados = JSON.parse(localStorage.getItem('pedidos') || '[]');
-    const actualizados = guardados.map(p => {
-      if (p.id !== pedidoId) return p;
-      return { ...p, estado: flujo[p.estado] || p.estado };
-    });
-    localStorage.setItem('pedidos', JSON.stringify(actualizados));
-    cargarPedidos();
+  const avanzarEstado = async (pedido) => {
+    try {
+      const nuevoEstado = flujo[pedido.estado];
+
+      console.log('Actualizando pedido:', pedido._id);
+      console.log('Nuevo estado:', nuevoEstado);
+
+      await pedidosApi.patch(
+        `/pedidos/${pedido._id}/estado`,
+        {
+          estado: nuevoEstado
+        }
+      );
+
+      cargarPedidos();
+
+    } catch (error) {
+      console.error(
+        'Error actualizando estado:',
+        error.response?.data || error.message
+      );
+    }
   };
 
   const activos = pedidos.length;
-  const enPrep = pedidos.filter(p => p.estado === 'en preparación').length;
+
+  const enPrep = pedidos.filter(
+    p => p.estado === 'en preparacion'
+  ).length;
+
   const pendientes = pedidos.filter(p => p.estado === 'pendiente').length;
+
+  const entregados = historial;
 
   return (
     <div className="flex min-h-screen bg-surface-dim text-on-background">
@@ -118,10 +154,13 @@ export default function PanelCocina() {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {pedidos.map(pedido => {
+
+                console.log(pedido.productos);
+
                 const esCritico = pedido.estado === 'pendiente';
                 return (
                   <div
-                    key={pedido.id}
+                    key={pedido._id}
                     className={`bg-surface-container p-0 rounded-xl overflow-hidden flex flex-col shadow-lg ${
                       esCritico ? 'border-2 border-red-500' : 'border border-outline-variant'
                     }`}
@@ -129,7 +168,7 @@ export default function PanelCocina() {
                     {/* Header de la tarjeta */}
                     <div className={`px-4 py-3 flex justify-between items-center ${esCritico ? 'bg-red-500/10' : 'bg-neutral-800'}`}>
                       <span className={`text-lg font-bold ${esCritico ? 'text-red-400' : 'text-on-surface'}`}>
-                        Order #{pedido.id}
+                        Order #{pedido._id.slice(-6)}
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-sm text-yellow-400">timer</span>
@@ -144,18 +183,24 @@ export default function PanelCocina() {
                     {/* Items del pedido */}
                     <div className="p-6 flex-1">
                       <ul className="space-y-4">
-                        {pedido.items?.map(item => (
-                          <li key={item._id} className="flex justify-between items-start">
+
+                        {pedido.detalle?.map(item => (
+                          <li
+                            key={item.productoId}
+                            className="flex justify-between items-start"
+                          >
                             <div>
                               <p className="font-bold text-lg text-on-surface">
                                 {item.cantidad}x {item.nombre}
                               </p>
                             </div>
+
                             <span className="bg-neutral-800 text-neutral-400 px-2 py-1 rounded text-xs">
                               ${(item.precio * item.cantidad).toFixed(2)}
                             </span>
                           </li>
                         ))}
+
                       </ul>
                     </div>
 
@@ -163,46 +208,57 @@ export default function PanelCocina() {
                     <div className="p-4 bg-surface-container-high">
                       {pedido.estado === 'pendiente' && (
                         <button
-                          onClick={() => avanzarEstado(pedido.id)}
+                          onClick={() => avanzarEstado(pedido)}
                           className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 active:scale-95"
                         >
                           <span className="material-symbols-outlined text-lg">restaurant</span>
                           Aceptar y preparar
                         </button>
                       )}
-                      {pedido.estado === 'en preparación' && (
+                      {pedido.estado === 'en preparacion' && (
                         <button
-                          onClick={() => avanzarEstado(pedido.id)}
-                          className="w-full bg-primary-container hover:bg-orange-600 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 active:scale-95"
+                          onClick={() => avanzarEstado(pedido)}
+                          className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 active:scale-95"
                         >
-                          <span className="material-symbols-outlined text-lg">delivery_dining</span>
-                          Listo — Enviar repartidor
+                          <span className="material-symbols-outlined text-lg">
+                            check_circle
+                          </span>
+
+                          Marcar entregado
                         </button>
                       )}
-                      {pedido.estado === 'en camino' && (
-                        <button
-                          onClick={() => avanzarEstado(pedido.id)}
-                          className="w-full bg-tertiary hover:bg-green-400 text-black font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 active:scale-95"
-                        >
-                          <span className="material-symbols-outlined text-lg">check_circle</span>
-                          Marcar como entregado
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* Historial */}
+                      <div className="mt-10">
+                        <h3 className="text-xl font-bold mb-4">
+                          Historial de pedidos
+                        </h3>
+
+                        <div className="space-y-3">
+                          {entregados.map(pedido => (
+                            <div
+                              key={pedido._id}
+                              className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 flex justify-between"
+                            >
+                              <span>Pedido #{pedido._id.slice(-6)}</span>
+
+                              <span className="text-green-400 font-bold">
+                                Entregado
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                </div>
+              </main>
+
+              <BottomNav admin />
             </div>
-          )}
-        </div>
-      </main>
-
-      <BottomNav admin />
-
-      {/* FAB */}
-      <button className="fixed bottom-24 right-8 md:bottom-8 md:right-8 bg-primary-container text-white p-4 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all z-40">
-        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
-      </button>
-    </div>
-  );
+          );
 }

@@ -67,13 +67,17 @@ export default function Menu() {
   const { agregarItem, items } = useCart();
   const navigate = useNavigate();
   const totalItems = items.reduce((s, i) => s + i.cantidad, 0);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    productosApi.get('/productos')
-      .then(res => setProductos(res.data))
-      .catch(err => console.error('Error al cargar productos:', err))
-      .finally(() => setCargando(false));
-  }, []);
+useEffect(() => {
+  productosApi.get('/productos')
+    .then(res => setProductos(res.data))
+    .catch(err => {
+      console.error(err);
+      setError('No se pudo cargar el menú');
+    })
+    .finally(() => setCargando(false));
+}, []);
 
   const productosFiltrados = categoriaActiva === 'Todos'
     ? productos
@@ -155,6 +159,12 @@ export default function Menu() {
             </p>
           </div>
         </div>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6">
+            {error}
+          </div>
+        )}
 
         {/* Grid de productos */}
         {cargando ? (
