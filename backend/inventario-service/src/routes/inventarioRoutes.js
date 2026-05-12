@@ -10,7 +10,7 @@ const {
 
 router.post('/', crearInventario);
 router.get('/', obtenerInventario);
-router.post('/validar-stock', validarStock);
+
 router.post('/actualizar-stock', actualizarStock);
 router.patch('/agregar-stock', agregarStock);
 
