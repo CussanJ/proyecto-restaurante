@@ -48,17 +48,44 @@ export default function Inventario() {
     return p ? p.nombre : `ID: ${productoId}`;
   };
 
-  const agregarStock = async (item) => {
-    const cantidadStr = window.prompt('¿Cuántas unidades agregar?', '10');
-    const cantidad = Number(cantidadStr);
-    if (!cantidadStr || isNaN(cantidad) || cantidad <= 0) return;
-    try {
-      await inventarioApi.post('/inventario/actualizar-stock', { productoId: item.productoId, cantidad });
-      setInventario(prev => prev.map(i => i._id === item._id ? { ...i, stock: i.stock + cantidad } : i));
-    } catch (err) {
-      alert('Error al actualizar stock: ' + (err.response?.data?.mensaje || err.message));
-    }
-  };
+const agregarStock = async (item) => {
+
+  const cantidadStr = window.prompt(
+    '¿Cuántas unidades agregar?',
+    '10'
+  );
+
+  const cantidad = Number(cantidadStr);
+
+  if (!cantidadStr || isNaN(cantidad) || cantidad <= 0)
+    return;
+
+  try {
+
+    const nuevoStock = item.stock + cantidad;
+
+    await inventarioApi.patch('/inventario/agregar-stock', {
+      productoId: item.productoId,
+      cantidad
+    });
+
+    setInventario(prev =>
+      prev.map(i =>
+        i._id === item._id
+          ? { ...i, stock: nuevoStock }
+          : i
+      )
+    );
+
+  } catch (err) {
+
+    alert(
+      'Error al actualizar stock: ' +
+      (err.response?.data?.mensaje || err.message)
+    );
+
+  }
+};
 
   const handleFile = async (e) => {
     const file = e.target.files[0];
