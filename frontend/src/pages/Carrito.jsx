@@ -51,6 +51,9 @@ export default function Carrito() {
   const [expiracion, setExpiracion] = useState('');
   const [cvv, setCvv] = useState('');
 
+  // Pedido confirmado
+  const [pedidoConfirmado, setPedidoConfirmado] = useState(null);
+
   const obtenerUbicacion = () => {
     if (!navigator.geolocation) {
       setGeoError('Tu navegador no soporta geolocalización.');
@@ -99,27 +102,21 @@ export default function Carrito() {
     setEnviando(true);
     setError(null);
     try {
-      // Preparar items del carrito con información completa
-      const itemsFormato = items.map(item => ({
-        productoId: item._id,
-        nombre: item.nombre,
-        precio: item.precio,
-        cantidad: item.cantidad
-      }));
 
       // Enviar TODO el pedido en UN SOLO POST
-      const respuesta = await pedidosApi.post('/pedidos', {
-        items: itemsFormato,
-        total,
-        direccion: direccion.trim(),
-        referencia: referencia.trim(),
-        metodoPago,
-        cliente: {
-          nombre: nombreTarjeta || 'Cliente',
-          email: '',
-          telefono: ''
-        }
-      });
+      const itemsFormato = items.map(item => ({
+  productoId: item._id,
+  cantidad: item.cantidad
+}));
+
+const respuesta = await pedidosApi.post('/pedidos', {
+  cliente: {
+    nombre: nombreTarjeta || 'Cliente',
+    email: '',
+    telefono: ''
+  },
+  items: itemsFormato
+});
 
       // Obtener el ID del pedido creado
       const pedidoId = respuesta.data.pedido._id;
@@ -142,7 +139,8 @@ export default function Carrito() {
 
       // Limpiar y redirigir
       vaciarCarrito();
-      navigate('/pedido/' + pedidoId);
+setPedidoConfirmado(pedidoId);
+setMostrarConfirm(false);
     } catch (err) {
       const mensajeError = err.response?.data?.error || err.response?.data?.mensaje || 'Error al crear el pedido';
       setError(mensajeError);
@@ -159,6 +157,27 @@ export default function Carrito() {
     if (n.startsWith('3')) return 'amex';
     return null;
   };
+
+  if (pedidoConfirmado) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center text-center gap-6">
+      <h1 className="text-2xl font-bold text-green-500">
+        Pedido confirmado correctamente
+      </h1>
+
+      <p className="text-neutral-400">
+        Tu pedido ya fue enviado a cocina 🍽️
+      </p>
+
+      <button
+        onClick={() => navigate('/')}
+        className="bg-orange-500 text-white px-6 py-3 rounded-xl font-bold"
+      >
+        Ir al menú
+      </button>
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-surface text-on-surface">
@@ -217,7 +236,7 @@ export default function Carrito() {
 
               <button onClick={() => navigate('/')} className="flex items-center gap-2 text-orange-500 font-semibold hover:underline">
                 <span className="material-symbols-outlined">add_circle</span>
-                Agregar más ítems
+                Agregar más productos
               </button>
 
               {/* Dirección */}
@@ -532,4 +551,4 @@ export default function Carrito() {
       )}
     </div>
   );
-}
+} 
