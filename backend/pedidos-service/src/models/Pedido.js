@@ -10,7 +10,11 @@ const detalleSchema = new mongoose.Schema({
 const ESTADOS_VALIDOS = ['pendiente', 'en preparacion', 'entregado', 'cancelado'];
 
 const pedidoSchema = new mongoose.Schema({
-    cliente: String,
+    cliente: {
+        nombre: String,
+        email: String,
+        telefono: String
+    },
     detalle: {
         type: [detalleSchema],
         required: true
