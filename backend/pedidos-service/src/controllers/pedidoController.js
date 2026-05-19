@@ -5,15 +5,19 @@ const crearPedido = async (req, res) => {
     try {
         const { productoId, cantidad } = req.body;
 
-        // Llamar a inventario
-        await axios.post('http://localhost:3002/inventario/actualizar-stock', {
-            productoId,
-            cantidad
-        });
-
-        // Guardar pedido
+        // Guardar pedido primero
         const pedido = new Pedido({ productoId, cantidad });
         await pedido.save();
+
+        // Actualizar inventario (si falla, el pedido ya quedó guardado)
+        try {
+            await axios.post('http://localhost:3002/inventario/actualizar-stock', {
+                productoId,
+                cantidad
+            });
+        } catch (invErr) {
+            console.warn('Inventario no actualizado:', invErr.message);
+        }
 
         res.json({
             mensaje: "Pedido creado",
