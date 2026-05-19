@@ -7,55 +7,31 @@ const INVENTARIO_URL = 'http://localhost:3002/inventario';
 
 const crearPedido = async (req, res) => {
     try {
-        const { cliente, items } = req.body;
+        const { productoId, cantidad } = req.body;
 
-        if (!cliente || !Array.isArray(items) || items.length === 0) {
-            return res.status(400).json({
-                mensaje: "Se requiere 'cliente' y un arreglo 'items' con al menos un elemento"
-            });
-        }
-
-        // 1. Consumir productos-service para obtener nombre y precio actuales
-        const { data: productos } = await axios.get(PRODUCTOS_URL);
-        const productoMap = new Map(productos.map(p => [p._id, p]));
-
-        const detalle = [];
-        let total = 0;
-
-        for (const item of items) {
-            if (!item.productoId || !item.cantidad || item.cantidad < 1) {
-                return res.status(400).json({
-                    mensaje: "Cada item debe tener productoId y cantidad >= 1"
-                });
-            }
-
-            const producto = productoMap.get(item.productoId);
-            if (!producto) {
-                return res.status(404).json({
-                    mensaje: `Producto ${item.productoId} no existe`
-                });
-            }
-
-            detalle.push({
-                productoId: item.productoId,
-                nombre: producto.nombre,
-                cantidad: item.cantidad,
-                precio: producto.precio
-            });
-            total += producto.precio * item.cantidad;
-        }
-
-        // 2. Consumir inventario-service para reducir stock de cada item
-        for (const item of items) {
-            await axios.post(`${INVENTARIO_URL}/actualizar-stock`, {
-                productoId: item.productoId,
-                cantidad: item.cantidad
-            });
-        }
-
-        // 3. Persistir pedido
-        const pedido = new Pedido({ cliente, detalle, total });
+        // Guardar pedido primero
+        const pedido = new Pedido({ productoId, cantidad });
         await pedido.save();
+
+        // Actualizar inventario (si falla, el pedido ya quedó guardado)
+        try {
+            await axios.post('http://localhost:3002/inventario/actualizar-stock', {
+                productoId,
+                cantidad
+            });
+        } catch (invErr) {
+            console.warn('Inventario no actualizado:', invErr.message);
+        }
+
+        // Actualizar inventario (si falla, el pedido ya quedó guardado)
+        try {
+            await axios.post('http://localhost:3002/inventario/actualizar-stock', {
+                productoId,
+                cantidad
+            });
+        } catch (invErr) {
+            console.warn('Inventario no actualizado:', invErr.message);
+        }
 
         res.status(201).json({
             mensaje: "Pedido creado",
