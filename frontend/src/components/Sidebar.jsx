@@ -1,4 +1,6 @@
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const navItems = [
   { icon: 'dashboard', label: 'Dashboard', to: '/admin/cocina' },
@@ -8,6 +10,9 @@ const navItems = [
 ];
 
 export default function Sidebar() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
   return (
     <aside className="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 bg-neutral-900 border-r border-neutral-800 z-40">
       <div className="p-6 border-b border-neutral-800">
@@ -32,6 +37,20 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
-    </aside>
-  );
+
+      <button
+        onClick={() => {
+          logout();
+          navigate('/login');
+        }}
+        className="flex items-center gap-2 text-red-400 px-4 py-3 hover:bg-red-500/10 rounded-lg transition-colors"
+      >
+        <span className="material-symbols-outlined">
+          logout
+        </span>
+
+        Cerrar sesión
+      </button>
+      </aside>
+    );
 }
