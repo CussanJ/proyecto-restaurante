@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { productosApi } from '../services/api';
+import { productosApi, inventarioApi } from '../services/api';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
+import Sidebar from '../components/Sidebar';
 
 const categorias = ['Todos', 'Burgers', 'Pizzas', 'Bebidas', 'Acompañados'];
 
@@ -61,40 +63,56 @@ const iconoPorNombre = (nombre) => {
 
 export default function Menu() {
   const [productos, setProductos] = useState([]);
+  const [inventario, setInventario] = useState([]);
   const [categoriaActiva, setCategoriaActiva] = useState('Todos');
   const [cargando, setCargando] = useState(true);
   const [imgError, setImgError] = useState({});
   const { agregarItem, items } = useCart();
+  const { admin } = useAuth();
   const navigate = useNavigate();
   const totalItems = items.reduce((s, i) => s + i.cantidad, 0);
   const [error, setError] = useState('');
 
-useEffect(() => {
-  productosApi.get('/productos')
-    .then(res => setProductos(res.data))
-    .catch(err => {
-      console.error(err);
-      setError('No se pudo cargar el menú');
-    })
-    .finally(() => setCargando(false));
-}, []);
+  useEffect(() => {
+    Promise.all([
+      productosApi.get('/productos'),
+      inventarioApi.get('/inventario').catch(() => ({ data: [] }))
+    ])
+      .then(([resProd, resInv]) => {
+        // Guardamos todo el catálogo. El filtrado lo haremos dinámicamente.
+        setProductos(resProd.data);
+        setInventario(resInv.data);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('No se pudo cargar el menú');
+      })
+      .finally(() => setCargando(false));
+  }, []);
+
+  // Regla: El admin ve todo, el cliente solo ve los disponibles
+  const productosVisibles = admin ? productos : productos.filter(p => p.disponible);
 
   const productosFiltrados = categoriaActiva === 'Todos'
-    ? productos
-    : productos.filter(p => p.categoria === categoriaActiva);
+    ? productosVisibles
+    : productosVisibles.filter(p => p.categoria === categoriaActiva);
 
-  const populares = productos.slice(0, 2);
+  const populares = productosVisibles.slice(0, 2);
 
   const handleImgError = (id) => {
     setImgError(prev => ({ ...prev, [id]: true }));
   };
 
   return (
-    <div className="min-h-screen bg-background text-on-surface">
-      <Header />
+    <div className="min-h-screen bg-background text-on-surface flex">
+      {/* Sidebar para Administradores (Desktop) */}
+      {admin && <Sidebar />}
+      
+      <div className={`flex-1 min-w-0 flex flex-col ${admin ? 'md:ml-64' : ''}`}>
+        <Header />
 
-      {/* Banner restaurante */}
-      <div className="bg-gradient-to-r from-neutral-950 to-neutral-900 border-b border-neutral-800 px-6 py-4">
+        {/* Banner restaurante */}
+        <div className="bg-gradient-to-r from-neutral-950 to-neutral-900 border-b border-neutral-800 px-6 py-4">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-orange-500 text-3xl">store</span>
@@ -183,10 +201,17 @@ useEffect(() => {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {productosFiltrados.map(p => (
+            {productosFiltrados.map(p => {
+              const stock = inventario.find(i => i.productoId === p._id)?.stock || 0;
+              const agotado = stock <= 0;
+              const inactivo = !p.disponible;
+              
+              return (
                 <div
                   key={p._id}
-                  className="bg-surface-container rounded-xl overflow-hidden border border-neutral-800 hover:border-orange-500/50 transition-all group shadow-sm"
+                  className={`bg-surface-container rounded-xl overflow-hidden border border-neutral-800 transition-all group shadow-sm ${
+                    (agotado || inactivo) ? 'opacity-60 grayscale' : 'hover:border-orange-500/50'
+                  }`}
                 >
                   {/* Imagen del producto */}
                   <div className="h-48 w-full bg-neutral-800 overflow-hidden relative">
@@ -218,22 +243,32 @@ useEffect(() => {
                       <span className="text-primary-container font-bold text-lg ml-2 flex-shrink-0">${p.precio}</span>
                     </div>
                     <p className="text-neutral-500 text-xs mb-3 line-clamp-2">{p.descripcion}</p>
-                    <p className={`text-xs font-semibold mb-4 ${p.disponible ? 'text-tertiary' : 'text-error'}`}>
-                      {p.disponible ? '● Disponible' : '● No disponible'}
-                    </p>
+                  <p className={`text-xs font-semibold mb-4 ${inactivo ? 'text-red-500' : agotado ? 'text-red-400' : 'text-tertiary'}`}>
+                    {inactivo ? '● Oculto al público' : agotado ? '● Agotado' : '● Disponible'}
+                  </p>
+                  {admin ? (
                     <button
-                      onClick={() => p.disponible && agregarItem(p)}
-                      disabled={!p.disponible}
+                      onClick={() => navigate('/admin/inventario')}
+                      className="w-full bg-neutral-800 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-neutral-700 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">edit</span>
+                      Editar en Inventario
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => !agotado && agregarItem(p)}
+                      disabled={agotado}
                       className="w-full bg-primary-container text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-40 disabled:cursor-not-allowed hover:bg-orange-600 transition-colors"
                     >
                       <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                        add_circle
+                        {agotado ? 'remove_shopping_cart' : 'add_circle'}
                       </span>
-                      Agregar al pedido
+                      {agotado ? 'Agotado' : 'Agregar al pedido'}
                     </button>
+                  )}
                   </div>
                 </div>
-              ))}
+            )})}
             </div>
 
             {/* Sección Popular ahora — solo visible en "Todos" */}
@@ -241,8 +276,13 @@ useEffect(() => {
               <section className="mt-16">
                 <h2 className="text-headline-md text-on-surface mb-6">Popular Ahora</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {populares.map((p, i) => (
-                    <div key={p._id} className="bg-surface-container rounded-2xl border border-neutral-800 overflow-hidden flex flex-row items-stretch">
+              {populares.map((p, i) => {
+                const stock = inventario.find(inv => inv.productoId === p._id)?.stock || 0;
+                const agotado = stock <= 0;
+                const inactivo = !p.disponible;
+                
+                return (
+                <div key={p._id} className={`bg-surface-container rounded-2xl border border-neutral-800 overflow-hidden flex flex-row items-stretch ${(agotado || inactivo) ? 'opacity-60 grayscale' : ''}`}>
                       <div className="w-32 flex-shrink-0 relative overflow-hidden">
                         {imgError[`pop-${p._id}`] ? (
                           <div className="w-full h-full flex items-center justify-center bg-neutral-800">
@@ -267,17 +307,28 @@ useEffect(() => {
                         </div>
                         <div className="flex justify-between items-center mt-3">
                           <span className="text-orange-500 font-bold text-lg">${p.precio}</span>
-                          <button
-                            onClick={() => agregarItem(p)}
-                            className="bg-primary-container text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-orange-600 transition-colors active:scale-95"
-                          >
-                            <span className="material-symbols-outlined text-sm">add</span>
-                            Agregar
-                          </button>
+                          {admin ? (
+                            <button
+                              onClick={() => navigate('/admin/inventario')}
+                              className="bg-neutral-800 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-neutral-700 transition-colors active:scale-95"
+                            >
+                              <span className="material-symbols-outlined text-sm">edit</span>
+                              Editar
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => !agotado && agregarItem(p)}
+                              disabled={agotado}
+                              className="bg-primary-container text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-orange-600 transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <span className="material-symbols-outlined text-sm">{agotado ? 'remove_shopping_cart' : 'add'}</span>
+                              {agotado ? 'Agotado' : 'Agregar'}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
-                  ))}
+              )})}
                 </div>
               </section>
             )}
@@ -337,7 +388,9 @@ useEffect(() => {
         </div>
       )}
 
-      <BottomNav />
+        {/* BottomNav con opciones de Administrador (Mobile) */}
+        <BottomNav admin={!!admin} />
+      </div>
     </div>
   );
 }
