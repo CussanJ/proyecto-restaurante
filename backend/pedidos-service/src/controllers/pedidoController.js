@@ -7,30 +7,74 @@ const INVENTARIO_URL = 'http://localhost:3002/inventario';
 
 const crearPedido = async (req, res) => {
     try {
-        const { productoId, cantidad } = req.body;
+        const { cliente, items, direccion, referencia, metodoPago } = req.body;
 
-        // Guardar pedido primero
-        const pedido = new Pedido({ productoId, cantidad });
-        await pedido.save();
-
-        // Actualizar inventario (si falla, el pedido ya quedó guardado)
-        try {
-            await axios.post('http://localhost:3002/inventario/actualizar-stock', {
-                productoId,
-                cantidad
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                mensaje: "Se requiere un arreglo 'items' con al menos un elemento"
             });
-        } catch (invErr) {
-            console.warn('Inventario no actualizado:', invErr.message);
         }
 
-        // Actualizar inventario (si falla, el pedido ya quedó guardado)
+        let total = 0;
+        const detalle = [];
+
+        // 1. Obtener TODOS los productos de una sola vez para buscar los precios
+        let catalogoProductos = [];
         try {
-            await axios.post('http://localhost:3002/inventario/actualizar-stock', {
-                productoId,
-                cantidad
-            });
-        } catch (invErr) {
-            console.warn('Inventario no actualizado:', invErr.message);
+            const resProds = await axios.get(PRODUCTOS_URL);
+            catalogoProductos = resProds.data;
+        } catch (error) {
+            console.warn("No se pudo obtener el catalogo de productos:", error.message);
+        }
+
+        // 2. Obtener el inventario actual para validar stock antes de crear el pedido
+        let catalogoInventario = [];
+        try {
+            const resInv = await axios.get(INVENTARIO_URL);
+            catalogoInventario = resInv.data;
+        } catch (error) {
+            return res.status(500).json({ error: "Error al verificar la disponibilidad en el inventario." });
+        }
+
+        for (const item of items) {
+            const producto = catalogoProductos.find(p => p._id === item.productoId);
+            
+            if (producto) {
+                // Verificar que haya stock suficiente para este producto
+                const invItem = catalogoInventario.find(i => i.productoId === item.productoId);
+                if (!invItem || invItem.stock < item.cantidad) {
+                    return res.status(400).json({
+                        error: `Stock insuficiente para '${producto.nombre}'. Solicitado: ${item.cantidad}, Disponible: ${invItem ? invItem.stock : 0}`
+                    });
+                }
+
+                total += producto.precio * item.cantidad;
+                detalle.push({
+                    productoId: item.productoId,
+                    nombre: producto.nombre,
+                    precio: producto.precio,
+                    cantidad: item.cantidad
+                });
+            } else {
+                console.warn(`Producto no encontrado en el catalogo: ${item.productoId}`);
+                detalle.push({ ...item, nombre: 'Producto desconocido', precio: 0 });
+            }
+        }
+
+        // Guardar pedido primero
+        const pedido = new Pedido({ cliente, detalle, total, direccion, referencia, metodoPago });
+        await pedido.save();
+
+        // Actualizar inventario de cada producto en el pedido
+        for (const item of items) {
+            try {
+                await axios.post(`${INVENTARIO_URL}/actualizar-stock`, {
+                    productoId: item.productoId,
+                    cantidad: item.cantidad
+                });
+            } catch (invErr) {
+                console.warn(`Inventario no actualizado para ${item.productoId}:`, invErr.message);
+            }
         }
 
         res.status(201).json({
@@ -49,10 +93,38 @@ const crearPedido = async (req, res) => {
 
 const obtenerPedidos = async (req, res) => {
     try {
-        const { estado } = req.query;
-        const filtro = estado ? { estado } : {};
-        const pedidos = await Pedido.find(filtro).sort({ fecha: -1 });
-        res.json(pedidos);
+        const { estado, fechaInicio, fechaFin, page, limit } = req.query;
+        const filtro = {};
+
+        if (estado) {
+            if (estado.includes(',')) {
+                filtro.estado = { $in: estado.split(',') };
+            } else {
+                filtro.estado = estado;
+            }
+        }
+
+        // Filtrar por rango de fechas (Historial)
+        if (fechaInicio || fechaFin) {
+            filtro.fecha = {};
+            if (fechaInicio) filtro.fecha.$gte = new Date(fechaInicio); // Mayor o igual que
+            if (fechaFin) filtro.fecha.$lte = new Date(fechaFin);       // Menor o igual que
+        }
+
+        // Configuración de paginación
+        const numPage = parseInt(page) || 1;
+        const numLimit = parseInt(limit) || 50;
+        const skip = (numPage - 1) * numLimit;
+
+        const totalPedidos = await Pedido.countDocuments(filtro);
+        const pedidos = await Pedido.find(filtro).sort({ fecha: -1 }).skip(skip).limit(numLimit);
+
+        res.json({
+            total: totalPedidos,
+            paginaActual: numPage,
+            totalPaginas: Math.ceil(totalPedidos / numLimit) || 1,
+            datos: pedidos
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

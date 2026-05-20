@@ -39,28 +39,39 @@ export default function PanelCocina() {
   const [pedidos, setPedidos] = useState([]);
   const [historial, setHistorial] = useState([]);
 
-  const cargarPedidos = async () => {
+  // Estados de paginación para el historial
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+
+  const cargarActivos = async () => {
     try {
-      const { data } = await pedidosApi.get('/pedidos');
-
-      setPedidos(
-        data.filter(p => p.estado !== 'entregado')
-      );
-
-      setHistorial(
-        data.filter(p => p.estado === 'entregado')
-      );
-
+      const { data } = await pedidosApi.get('/pedidos?estado=pendiente,en preparacion&limit=100');
+      setPedidos(data.datos || data);
     } catch (error) {
-      console.error('Error cargando pedidos:', error);
+      console.error('Error cargando pedidos activos:', error);
+    }
+  };
+
+  const cargarHistorial = async (pag = 1) => {
+    try {
+      // Solo trae de 5 en 5 para no llenar la pantalla
+      const { data } = await pedidosApi.get(`/pedidos?estado=entregado&page=${pag}&limit=5`);
+      setHistorial(data.datos || data);
+      if (data.totalPaginas) setTotalPaginas(data.totalPaginas);
+    } catch (error) {
+      console.error('Error cargando historial:', error);
     }
   };
 
   useEffect(() => {
-    cargarPedidos();
-    const intervalo = setInterval(cargarPedidos, 5000);
+    cargarActivos();
+    const intervalo = setInterval(cargarActivos, 5000);
     return () => clearInterval(intervalo);
   }, []);
+
+  useEffect(() => {
+    cargarHistorial(pagina);
+  }, [pagina]);
 
   const flujo = {
     pendiente: 'en preparacion',
@@ -81,7 +92,8 @@ export default function PanelCocina() {
         }
       );
 
-      cargarPedidos();
+      cargarActivos();
+      if (nuevoEstado === 'entregado') cargarHistorial(pagina);
 
     } catch (error) {
       console.error(
@@ -244,16 +256,59 @@ export default function PanelCocina() {
                           {entregados.map(pedido => (
                             <div
                               key={pedido._id}
-                              className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 flex justify-between"
+                              className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 flex flex-col gap-3"
                             >
-                              <span>Pedido #{pedido._id.slice(-6)}</span>
+                              <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
+                                <div>
+                                  <span className="font-bold text-on-surface">Pedido #{pedido._id.slice(-6).toUpperCase()}</span>
+                                  <span className="text-xs text-neutral-500 ml-3">
+                                    {new Date(pedido.fecha || Date.now()).toLocaleString()}
+                                  </span>
+                                </div>
+                                <span className="text-green-400 font-bold text-sm bg-green-400/10 px-2 py-1 rounded">
+                                  Entregado
+                                </span>
+                              </div>
+                              
+                              <ul className="space-y-1">
+                                {pedido.detalle?.map(item => (
+                                  <li key={item.productoId} className="flex justify-between text-sm text-neutral-400">
+                                    <span>{item.cantidad}x {item.nombre}</span>
+                                    <span>${(item.precio * item.cantidad).toFixed(2)}</span>
+                                  </li>
+                                ))}
+                              </ul>
 
-                              <span className="text-green-400 font-bold">
-                                Entregado
-                              </span>
+                              <div className="flex justify-between items-center pt-2 border-t border-neutral-800">
+                                <span className="text-sm font-bold text-neutral-300">Total</span>
+                                <span className="font-bold text-orange-500">${pedido.total?.toFixed(2) || '0.00'}</span>
+                              </div>
                             </div>
                           ))}
                         </div>
+
+                    {/* Controles de Paginación */}
+                    {totalPaginas > 1 && (
+                      <div className="flex justify-between items-center mt-6 bg-neutral-900/50 px-4 py-3 rounded-lg border border-neutral-800">
+                        <button
+                          onClick={() => setPagina(p => Math.max(1, p - 1))}
+                          disabled={pagina === 1}
+                          className="text-orange-500 disabled:text-neutral-600 font-bold px-3 py-1 flex items-center gap-1 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-sm">arrow_back_ios</span> Anterior
+                        </button>
+                        <span className="text-neutral-400 text-sm font-semibold">
+                          Página {pagina} de {totalPaginas}
+                        </span>
+                        <button
+                          onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                          disabled={pagina === totalPaginas}
+                          className="text-orange-500 disabled:text-neutral-600 font-bold px-3 py-1 flex items-center gap-1 transition-colors"
+                        >
+                          Siguiente <span className="material-symbols-outlined text-sm">arrow_forward_ios</span>
+                        </button>
+                      </div>
+                    )}
                       </div>
                 </div>
               </main>

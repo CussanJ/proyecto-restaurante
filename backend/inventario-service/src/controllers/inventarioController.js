@@ -91,9 +91,23 @@ const agregarStock = async (req, res) => {
     }
 };
 
+const eliminarInventario = async (req, res) => {
+    try {
+        const { productoId } = req.params;
+        const item = await Inventario.findOneAndDelete({ productoId });
+        if (!item) {
+            return res.status(404).json({ mensaje: "Inventario no encontrado" });
+        }
+        res.json({ mensaje: "Inventario eliminado correctamente", item });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 module.exports = {
     crearInventario,
     obtenerInventario,
     actualizarStock,
-    agregarStock
+    agregarStock,
+    eliminarInventario
 };

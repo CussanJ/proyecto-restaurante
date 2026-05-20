@@ -12,7 +12,7 @@ function getEstado(stock) {
 }
 
 const formVacio = {
-  nombre: '', precio: '', categoria: 'General',
+  _id: null, nombre: '', precio: '', categoria: 'General',
   descripcion: '', imagen: '', disponible: true, stockInicial: 10,
 };
 
@@ -117,18 +117,31 @@ const agregarStock = async (item) => {
     setError('');
     setGuardando(true);
     try {
-      const producto = await productosApi.post('/productos', {
-        nombre: form.nombre.trim(),
-        precio: Number(form.precio),
-        categoria: form.categoria,
-        descripcion: form.descripcion.trim(),
-        imagen: form.imagen.trim(),
-        disponible: form.disponible,
-      });
-      await inventarioApi.post('/inventario', {
-        productoId: producto.data._id,
-        stock: Number(form.stockInicial) || 0,
-      });
+      if (form._id) {
+        // Editar producto existente
+        await productosApi.put(`/productos/${form._id}`, {
+          nombre: form.nombre.trim(),
+          precio: Number(form.precio),
+          categoria: form.categoria,
+          descripcion: form.descripcion.trim(),
+          imagen: form.imagen.trim(),
+          disponible: form.disponible,
+        });
+      } else {
+        // Crear nuevo producto
+        const producto = await productosApi.post('/productos', {
+          nombre: form.nombre.trim(),
+          precio: Number(form.precio),
+          categoria: form.categoria,
+          descripcion: form.descripcion.trim(),
+          imagen: form.imagen.trim(),
+          disponible: form.disponible,
+        });
+        await inventarioApi.post('/inventario', {
+          productoId: producto.data._id,
+          stock: Number(form.stockInicial) || 0,
+        });
+      }
       setModalAbierto(false);
       setForm(formVacio);
       setPreviewImagen('');
@@ -140,12 +153,42 @@ const agregarStock = async (item) => {
     }
   };
 
-  const abrirModal = () => {
-    setForm(formVacio);
-    setPreviewImagen('');
+  const abrirModal = (item = null) => {
+    if (item && item.productoId) {
+      const prod = productos.find(p => p._id === item.productoId);
+      if (prod) {
+        setForm({
+          _id: prod._id,
+          nombre: prod.nombre,
+          precio: prod.precio,
+          categoria: prod.categoria || 'General',
+          descripcion: prod.descripcion || '',
+          imagen: prod.imagen || '',
+          disponible: prod.disponible,
+          stockInicial: item.stock
+        });
+        setPreviewImagen(prod.imagen || '');
+        setTabImagen(prod.imagen ? 'url' : 'archivo');
+      }
+    } else {
+      setForm(formVacio);
+      setPreviewImagen('');
+      setTabImagen('url');
+    }
     setError('');
-    setTabImagen('url');
     setModalAbierto(true);
+  };
+
+  const eliminarProducto = async (item) => {
+    if (!window.confirm('¿Estás seguro de eliminar este producto del menú? Esto no se puede deshacer.')) return;
+    
+    try {
+      await productosApi.delete(`/productos/${item.productoId}`);
+      await inventarioApi.delete(`/inventario/${item.productoId}`);
+      cargarDatos();
+    } catch (err) {
+      alert('Error al eliminar: ' + (err.response?.data?.error || err.message));
+    }
   };
 
   const totalSKU = inventario.length;
@@ -226,7 +269,7 @@ const agregarStock = async (item) => {
           <div className="bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden">
             <div className="px-6 py-4 flex flex-wrap justify-between items-center gap-4 border-b border-neutral-800">
               <button
-                onClick={abrirModal}
+                onClick={() => abrirModal()}
                 className="bg-primary-container text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2 active:scale-95 transition-transform hover:bg-orange-600"
               >
                 <span className="material-symbols-outlined text-sm">add</span>
@@ -282,7 +325,7 @@ const agregarStock = async (item) => {
                               {estado.label}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-6 py-4 text-right flex justify-end gap-2">
                             <button
                               onClick={() => agregarStock(item)}
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 ${
@@ -291,7 +334,19 @@ const agregarStock = async (item) => {
                                   : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
                               }`}
                             >
-                              Añadir Stock
+                              + Stock
+                            </button>
+                            <button
+                              onClick={() => abrirModal(item)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 flex items-center gap-1"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">edit</span>
+                            </button>
+                            <button
+                              onClick={() => eliminarProducto(item)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 bg-red-500/10 hover:bg-red-500/20 text-red-400 flex items-center gap-1"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">delete</span>
                             </button>
                           </td>
                         </tr>
@@ -327,7 +382,7 @@ const agregarStock = async (item) => {
           <div className="bg-neutral-900 border border-neutral-700 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
             {/* Header modal */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-neutral-800">
-              <h3 className="font-bold text-lg text-on-surface">Nuevo Producto</h3>
+              <h3 className="font-bold text-lg text-on-surface">{form._id ? 'Editar Producto' : 'Nuevo Producto'}</h3>
               <button onClick={() => setModalAbierto(false)} className="text-neutral-400 hover:text-white transition-colors">
                 <span className="material-symbols-outlined">close</span>
               </button>
@@ -385,11 +440,12 @@ const agregarStock = async (item) => {
               </div>
 
               {/* Stock inicial */}
-              <div>
+              <div className={form._id ? 'opacity-50 pointer-events-none' : ''}>
                 <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Stock Inicial</label>
                 <input
                   type="number"
                   min="0"
+                  disabled={!!form._id}
                   className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors"
                   placeholder="10"
                   value={form.stockInicial}

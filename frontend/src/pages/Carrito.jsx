@@ -62,19 +62,46 @@ export default function Carrito() {
     setUbicando(true);
     setGeoError(null);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
         const dist = haversine(
           RESTAURANTE_LAT, RESTAURANTE_LON,
-          pos.coords.latitude, pos.coords.longitude
+          latitude, longitude
         );
         setDistancia(dist.toFixed(1));
         setTiempoEstimado(estimarTiempo(dist));
+
+        // Obtener la dirección legible usando Nominatim (OpenStreetMap)
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          if (data && data.address) {
+            const { road, pedestrian, house_number, suburb, neighbourhood, city, town, village, state } = data.address;
+            
+            const calle = road || pedestrian || '';
+            const numero = house_number ? ` ${house_number}` : '';
+            const direccionCalle = `${calle}${numero}`.trim();
+            
+            const colonia = suburb || neighbourhood || '';
+            const municipio = city || town || village || '';
+            
+            const referenciaPartes = [colonia, municipio, state].filter(Boolean);
+            const referenciaFormateada = referenciaPartes.join(', ').trim();
+            
+            setDireccion(direccionCalle || data.display_name.split(',')[0]);
+            setReferencia(referenciaFormateada);
+          }
+        } catch (error) {
+          console.error("Error al obtener la dirección:", error);
+        }
+
         setUbicando(false);
       },
       () => {
-        setGeoError('No se pudo obtener tu ubicación. Ingresa la dirección manualmente.');
+        setGeoError('No se pudo obtener tu ubicación. Asegúrate de darle permisos al navegador e inténtalo de nuevo.');
         setUbicando(false);
-      }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
