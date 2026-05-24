@@ -435,10 +435,25 @@ export default function PanelCocina() {
                           </li>
                         ))}
                       </ul>
-                      <div className="mt-3 pt-3 border-t border-neutral-800 flex justify-between">
-                        <span className="text-sm text-neutral-400">Total</span>
-                        <span className="font-bold text-orange-500">${pedido.total?.toFixed(2)}</span>
+                  {(() => {
+                    const subtotal = pedido.detalle?.reduce((sum, i) => sum + (i.precio * i.cantidad), 0) || 0;
+                    const propina = pedido.propina ?? (pedido.total > subtotal + 0.01 ? pedido.total - subtotal : 0);
+                    const porcentajePropina = subtotal > 0 ? Math.round((propina / subtotal) * 100) : 0;
+                    return (
+                      <div className="mt-3 pt-3 border-t border-neutral-800 space-y-1">
+                        {propina > 0 && (
+                          <div className="flex justify-between text-xs text-neutral-500">
+                            <span>Propina incl. ({porcentajePropina}%)</span>
+                            <span>${propina.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-sm text-neutral-400">Total</span>
+                          <span className="font-bold text-orange-500">${pedido.total?.toFixed(2)}</span>
+                        </div>
                       </div>
+                    );
+                  })()}
                       {pedido.direccion && (
                         <div className="mt-2 flex items-start gap-1 text-xs text-neutral-500">
                           <span className="material-symbols-outlined text-sm">location_on</span>
@@ -529,8 +544,20 @@ export default function PanelCocina() {
                     ))}
                   </ul>
                   <div className="flex justify-between items-center pt-2 border-t border-neutral-800">
-                    <span className="text-sm font-bold text-neutral-300">Total</span>
-                    <span className="font-bold text-orange-500">${pedido.total?.toFixed(2) || '0.00'}</span>
+                    {(() => {
+                      const subtotal = pedido.detalle?.reduce((sum, i) => sum + (i.precio * i.cantidad), 0) || 0;
+                      const propina = pedido.propina ?? (pedido.total > subtotal + 0.01 ? pedido.total - subtotal : 0);
+                      const porcentajePropina = subtotal > 0 ? Math.round((propina / subtotal) * 100) : 0;
+                      return (
+                        <>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-neutral-300">Total</span>
+                            {propina > 0 && <span className="text-xs text-neutral-500">+ ${propina.toFixed(2)} propina ({porcentajePropina}%)</span>}
+                          </div>
+                          <span className="font-bold text-orange-500">${pedido.total?.toFixed(2) || '0.00'}</span>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}

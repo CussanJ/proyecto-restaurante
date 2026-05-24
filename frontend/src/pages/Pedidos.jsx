@@ -107,7 +107,7 @@ export default function Pedidos() {
                   ))}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-neutral-800 flex justify-between items-center">
+            <div className="mt-4 pt-4 border-t border-neutral-800 flex justify-between items-end">
                   <div>
                     <p className="text-xs text-neutral-500">
                       Dirección
@@ -119,13 +119,26 @@ export default function Pedidos() {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-xs text-neutral-500">
-                      Total
-                    </p>
-
-                    <p className="text-orange-500 font-black text-lg">
-                      ${pedido.total.toFixed(2)}
-                    </p>
+                {(() => {
+                  const subtotal = pedido.items.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
+                  const propinaCalc = pedido.propina ?? (pedido.total > subtotal + 0.01 ? pedido.total - subtotal : 0);
+                  const porcentajePropina = subtotal > 0 ? Math.round((propinaCalc / subtotal) * 100) : 0;
+                  return (
+                    <>
+                      {propinaCalc > 0 && (
+                        <p className="text-xs text-neutral-500 mb-1">
+                          + ${propinaCalc.toFixed(2)} propina ({porcentajePropina}%)
+                        </p>
+                      )}
+                      <p className="text-xs text-neutral-500">
+                        Total
+                      </p>
+                      <p className="text-orange-500 font-black text-lg">
+                        ${pedido.total.toFixed(2)}
+                      </p>
+                    </>
+                  );
+                })()}
                   </div>
                 </div>
 
