@@ -70,7 +70,6 @@ export default function Carrito() {
   const [direccion, setDireccion] = useState('');
   const [referencia, setReferencia] = useState('');
   const [mostrarConfirm, setMostrarConfirm] = useState(false);
-  const [countdown, setCountdown] = useState(3);
   const [imgError, setImgError] = useState({});
 
   // Geolocalización
@@ -98,32 +97,6 @@ export default function Carrito() {
     : (propinaPct / 100) * total;
   const totalFinal = total + propinaAmount;
   const rangoEntrega = tiempoEstimado ? calcularRangoEntrega(tiempoEstimado) : null;
-
-  // Refs para el countdown — confirmarRef siempre apunta a la versión más reciente,
-  // intervalRef permite cancelarlo si el usuario hace clic antes de que expire.
-  const confirmarRef = useRef();
-  const intervalRef  = useRef(null);
-
-  // Countdown automático del modal
-  useEffect(() => {
-    if (!mostrarConfirm) {
-      setCountdown(3);
-      return;
-    }
-    const id = setInterval(() => {
-      setCountdown(n => {
-        if (n <= 1) {
-          clearInterval(id);
-          intervalRef.current = null;
-          confirmarRef.current();
-          return 0;
-        }
-        return n - 1;
-      });
-    }, 1000);
-    intervalRef.current = id;
-    return () => { clearInterval(id); intervalRef.current = null; };
-  }, [mostrarConfirm]);
 
   const obtenerUbicacion = () => {
     if (!navigator.geolocation) { setGeoError('Tu navegador no soporta geolocalización.'); return; }
@@ -173,11 +146,6 @@ export default function Carrito() {
   };
 
   const confirmarPedido = async () => {
-    // Cancelar el countdown si el usuario hizo clic antes de que expirara
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
     setMostrarConfirm(false);
     setEnviando(true);
     setError(null);
@@ -203,9 +171,6 @@ export default function Carrito() {
       setEnviando(false);
     }
   };
-
-  // Actualizar ref con la función más reciente
-  confirmarRef.current = confirmarPedido;
 
   const tipoTarjeta = () => {
     const n = numTarjeta.replace(/\s/g, '');
@@ -745,7 +710,7 @@ export default function Carrito() {
                 onClick={confirmarPedido}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-xl text-base transition-all active:scale-95 mt-5"
               >
-                OK ({countdown}s)
+                {enviando ? 'Procesando...' : 'Confirmar pedido'}
               </button>
               <button
                 onClick={() => setMostrarConfirm(false)}

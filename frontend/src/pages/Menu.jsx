@@ -382,6 +382,18 @@ export default function Menu() {
         )}
       </main>
 
+      {/* Botón pedidos */}
+      <button
+        onClick={() => navigate('/pedidos')}
+        className={`fixed right-6 md:right-10 z-40 bg-neutral-900 border border-neutral-700 text-white rounded-full p-4 shadow-xl hover:scale-105 transition-all ${
+          totalItems > 0 ? 'bottom-44' : 'bottom-24'
+        }`}
+      >
+        <span className="material-symbols-outlined">
+          receipt_long
+        </span>
+      </button>
+
       {/* FAB carrito */}
       {totalItems > 0 && (
         <div className="fixed bottom-24 right-6 md:right-10 z-50">
@@ -390,7 +402,10 @@ export default function Menu() {
             className="bg-primary-container text-white w-16 h-16 rounded-full flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform"
           >
             <div className="relative">
-              <span className="material-symbols-outlined text-3xl">shopping_cart</span>
+              <span className="material-symbols-outlined text-3xl">
+                shopping_cart
+              </span>
+
               <span className="absolute -top-2 -right-2 bg-white text-orange-500 text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
                 {totalItems}
               </span>

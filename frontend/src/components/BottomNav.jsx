@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 const clienteLinks = [
   { icon: 'home', label: 'Home', to: '/' },
   { icon: 'restaurant_menu', label: 'Menu', to: '/' },
-  { icon: 'receipt_long', label: 'Orders', to: '/carrito' },
+  { icon: 'receipt_long', label: 'Pedidos', to: '/pedidos' },
   { icon: 'person', label: 'Profile', to: '/' },
 ];
 
