@@ -12,6 +12,7 @@ import AdminRecuperar from './pages/AdminRecuperar';
 import AdminRegistro from './pages/AdminRegistro';
 import AdminResetPassword from './pages/AdminResetPassword';
 import './App.css';
+import Pedidos from './pages/Pedidos';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
             <Route path="/menu"  element={<Menu />} />
             <Route path="/carrito"     element={<Carrito />} />
             <Route path="/pedido/:id"  element={<EstadoPedido />} />
+            <Route path="/pedidos" element={<Pedidos />} />
 
             {/* Autenticación admin */}
             <Route path="/admin/login"                   element={<AdminLogin />} />
