@@ -1,0 +1,29 @@
+{
+  "name": "proyecto-restaurante",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start:auth": "cd backend/auth-service && node src/app.js",
+    "start:inv": "cd backend/inventario-service && node src/app.js",
+    "start:pedidos": "cd backend/pedidos-service && node src/app.js",
+    "start:prod": "cd backend/productos-service && node src/app.js",
+    "start:front": "cd frontend && npm run dev",
+    "dev": "concurrently -c \"red,green,yellow,blue,magenta\" -n \"AUTH,INV,PEDIDOS,PROD,FRONT\" \"npm run start:auth\" \"npm run start:inv\" \"npm run start:pedidos\" \"npm run start:prod\" \"npm run start:front\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CussanJ/proyecto-restaurante.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/CussanJ/proyecto-restaurante/issues"
+  },
+  "homepage": "https://github.com/CussanJ/proyecto-restaurante#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
