@@ -3,9 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const navItems = [
-  { icon: 'dashboard', label: 'Dashboard', to: '/admin/cocina' },
+  { icon: 'dashboard', label: 'Panel Cocina', to: '/admin/cocina' },
   { icon: 'inventory_2', label: 'Inventario', to: '/admin/inventario' },
-  { icon: 'restaurant', label: 'Kitchen', to: '/admin/cocina' },
   { icon: 'restaurant_menu', label: 'Menú', to: '/menu' },
 ];
 
