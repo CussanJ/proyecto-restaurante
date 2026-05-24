@@ -14,8 +14,17 @@ body {
   color: #e5e2e1;
   font-family: 'Inter', sans-serif;
   margin: 0;
+  /* Extiende el fondo detrás del Dynamic Island y home indicator en iPhone */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 #root {
   min-height: 100svh;
+}
+
+/* Clase utilitaria para padding inferior seguro en iPhone */
+.pb-safe {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { productosApi, inventarioApi } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -68,9 +68,18 @@ export default function Menu() {
   const [cargando, setCargando] = useState(true);
   const [imgError, setImgError] = useState({});
   const { agregarItem, items } = useCart();
-  const { admin } = useAuth();
+  const { admin, cargando: authCargando } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const totalItems = items.reduce((s, i) => s + i.cantidad, 0);
+
+  // "/" es siempre para el cliente. Si el admin llega aquí, lo mandamos a su panel.
+  // "/menu" es la vista previa del menú para el admin (accesible desde el Sidebar).
+  useEffect(() => {
+    if (!authCargando && admin && location.pathname === '/') {
+      navigate('/admin/cocina', { replace: true });
+    }
+  }, [admin, authCargando, location.pathname, navigate]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -141,7 +150,7 @@ export default function Menu() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 pb-32 pt-8">
+      <main className="max-w-7xl mx-auto px-4 md:px-6 pb-32 pt-6 md:pt-8" style={{ paddingBottom: 'max(128px, calc(80px + env(safe-area-inset-bottom)))' }}>
 
         {/* Categorías */}
         <div className="flex items-center gap-3 overflow-x-auto pb-4 mb-8 no-scrollbar">
@@ -149,7 +158,7 @@ export default function Menu() {
             <button
               key={cat}
               onClick={() => setCategoriaActiva(cat)}
-              className={`flex-shrink-0 flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold tracking-wide transition-all ${
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 md:px-5 py-1.5 md:py-2 rounded-full text-xs font-bold tracking-wide transition-all ${
                 categoriaActiva === cat
                   ? 'bg-primary-container text-white shadow-lg shadow-orange-500/20'
                   : 'bg-surface-container-high text-on-surface-variant border border-neutral-800 hover:bg-neutral-800'
@@ -167,7 +176,7 @@ export default function Menu() {
         {/* Título */}
         <div className="mb-8 flex justify-between items-end">
           <div>
-            <h1 className="text-headline-lg text-on-surface">
+            <h1 className="text-2xl md:text-headline-lg text-on-surface font-bold">
               {categoriaActiva === 'Todos' ? 'Nuestro Menú' : categoriaActiva}
             </h1>
             <p className="text-neutral-400 text-body-md">
@@ -200,12 +209,12 @@ export default function Menu() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
             {productosFiltrados.map(p => {
-              const stock = inventario.find(i => i.productoId === p._id)?.stock || 0;
-              const agotado = stock <= 0;
+              const invItem = inventario.find(i => i.productoId === p._id);
+              const agotado = invItem ? invItem.stock <= 0 : false;
               const inactivo = !p.disponible;
-              
+
               return (
                 <div
                   key={p._id}
@@ -214,10 +223,10 @@ export default function Menu() {
                   }`}
                 >
                   {/* Imagen del producto */}
-                  <div className="h-48 w-full bg-neutral-800 overflow-hidden relative">
+                  <div className="h-32 md:h-48 w-full bg-neutral-800 overflow-hidden relative">
                     {imgError[p._id] ? (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="material-symbols-outlined text-7xl text-neutral-700">
+                        <span className="material-symbols-outlined text-5xl md:text-7xl text-neutral-700">
                           {iconoPorNombre(p.nombre)}
                         </span>
                       </div>
@@ -229,43 +238,45 @@ export default function Menu() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     )}
-                    <div className="absolute top-3 right-3 bg-neutral-900/80 backdrop-blur-md px-2 py-1 rounded-lg text-orange-500 text-xs font-bold">
+                    <div className="absolute top-2 right-2 bg-neutral-900/80 backdrop-blur-md px-1.5 py-0.5 rounded-md text-orange-500 text-[10px] font-bold">
                       ★ 4.9
                     </div>
-                    <div className="absolute top-3 left-3 bg-neutral-900/80 backdrop-blur-md px-2 py-1 rounded-lg text-neutral-300 text-xs font-semibold">
+                    <div className="absolute top-2 left-2 bg-neutral-900/80 backdrop-blur-md px-1.5 py-0.5 rounded-md text-neutral-300 text-[10px] font-semibold">
                       {p.categoria}
                     </div>
                   </div>
 
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="text-headline-sm text-on-surface leading-tight">{p.nombre}</h3>
-                      <span className="text-primary-container font-bold text-lg ml-2 flex-shrink-0">${p.precio}</span>
+                  <div className="p-2.5 md:p-4">
+                    <div className="flex justify-between items-start mb-1 gap-1">
+                      <h3 className="text-xs md:text-headline-sm text-on-surface leading-tight font-bold line-clamp-2">{p.nombre}</h3>
+                      <span className="text-primary-container font-bold text-sm md:text-lg flex-shrink-0">${p.precio}</span>
                     </div>
-                    <p className="text-neutral-500 text-xs mb-3 line-clamp-2">{p.descripcion}</p>
-                  <p className={`text-xs font-semibold mb-4 ${inactivo ? 'text-red-500' : agotado ? 'text-red-400' : 'text-tertiary'}`}>
-                    {inactivo ? '● Oculto al público' : agotado ? '● Agotado' : '● Disponible'}
-                  </p>
-                  {admin ? (
-                    <button
-                      onClick={() => navigate('/admin/inventario')}
-                      className="w-full bg-neutral-800 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-neutral-700 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-sm">edit</span>
-                      Editar en Inventario
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => !agotado && agregarItem(p)}
-                      disabled={agotado}
-                      className="w-full bg-primary-container text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-40 disabled:cursor-not-allowed hover:bg-orange-600 transition-colors"
-                    >
-                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                        {agotado ? 'remove_shopping_cart' : 'add_circle'}
-                      </span>
-                      {agotado ? 'Agotado' : 'Agregar al pedido'}
-                    </button>
-                  )}
+                    <p className="text-neutral-500 text-[10px] md:text-xs mb-2 line-clamp-2 hidden md:block">{p.descripcion}</p>
+                    <p className={`text-[10px] md:text-xs font-semibold mb-2 md:mb-4 ${inactivo ? 'text-red-500' : agotado ? 'text-red-400' : 'text-tertiary'}`}>
+                      {inactivo ? '● Oculto' : agotado ? '● Agotado' : '● Disponible'}
+                    </p>
+                    {admin ? (
+                      <button
+                        onClick={() => navigate('/admin/inventario')}
+                        className="w-full bg-neutral-800 text-white py-2 md:py-3 rounded-lg font-bold flex items-center justify-center gap-1 md:gap-2 hover:bg-neutral-700 transition-colors text-xs md:text-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                        <span className="hidden sm:inline">Editar en Inventario</span>
+                        <span className="sm:hidden">Editar</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => !agotado && agregarItem(p)}
+                        disabled={agotado}
+                        className="w-full bg-primary-container text-white py-2 md:py-3 rounded-lg font-bold flex items-center justify-center gap-1 md:gap-2 active:scale-[0.98] transition-transform disabled:opacity-40 disabled:cursor-not-allowed hover:bg-orange-600 text-xs md:text-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
+                          {agotado ? 'remove_shopping_cart' : 'add_circle'}
+                        </span>
+                        <span className="hidden sm:inline">{agotado ? 'Agotado' : 'Agregar al pedido'}</span>
+                        <span className="sm:hidden">{agotado ? 'Agotado' : 'Agregar'}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
             )})}
@@ -277,8 +288,8 @@ export default function Menu() {
                 <h2 className="text-headline-md text-on-surface mb-6">Popular Ahora</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {populares.map((p, i) => {
-                const stock = inventario.find(inv => inv.productoId === p._id)?.stock || 0;
-                const agotado = stock <= 0;
+                const invItem = inventario.find(inv => inv.productoId === p._id);
+                const agotado = invItem ? invItem.stock <= 0 : false;
                 const inactivo = !p.disponible;
                 
                 return (

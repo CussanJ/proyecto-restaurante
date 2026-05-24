@@ -6,7 +6,7 @@ const navItems = [
   { icon: 'dashboard', label: 'Dashboard', to: '/admin/cocina' },
   { icon: 'inventory_2', label: 'Inventario', to: '/admin/inventario' },
   { icon: 'restaurant', label: 'Kitchen', to: '/admin/cocina' },
-  { icon: 'restaurant_menu', label: 'Menú', to: '/' },
+  { icon: 'restaurant_menu', label: 'Menú', to: '/menu' },
 ];
 
 export default function Sidebar() {
@@ -41,7 +41,7 @@ export default function Sidebar() {
       <button
         onClick={() => {
           logout();
-          navigate('/login');
+          navigate('/admin/login');
         }}
         className="flex items-center gap-2 text-red-400 px-4 py-3 hover:bg-red-500/10 rounded-lg transition-colors"
       >

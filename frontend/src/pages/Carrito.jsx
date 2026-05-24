@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { pedidosApi } from '../services/api';
@@ -20,12 +20,45 @@ const haversine = (lat1, lon1, lat2, lon2) => {
 const estimarTiempo = (distanciaKm) =>
   Math.min(60, Math.max(15, Math.round(10 + distanciaKm * 3)));
 
+const calcularRangoEntrega = (minutos) => {
+  const ahora = new Date();
+  const inicio = new Date(ahora.getTime() + minutos * 60000);
+  const fin = new Date(ahora.getTime() + (minutos + 15) * 60000);
+  const fmt = (d) => d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return `${fmt(inicio)} – ${fmt(fin)}`;
+};
+
 const formatCard = (v) =>
   v.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim();
 
 const formatExpiry = (v) => {
   const d = v.replace(/\D/g, '').slice(0, 4);
   return d.length >= 3 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+};
+
+const imagenPorNombre = (nombre) => {
+  const n = nombre.toLowerCase();
+  if (n.includes('truffle') || n.includes('smoky') || n.includes('garden') || n.includes('bacon') || n.includes('burger'))
+    return 'https://images.unsplash.com/photo-1550317138-10000687a72b?w=400&q=80';
+  if (n.includes('margherita') || n.includes('buffalo'))
+    return 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&q=80';
+  if (n.includes('pepperoni'))
+    return 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&q=80';
+  if (n.includes('pizza'))
+    return 'https://images.unsplash.com/photo-1506354666786-959d6d497f1a?w=400&q=80';
+  if (n.includes('calamari'))
+    return 'https://images.unsplash.com/photo-1604909052743-94e838986d24?w=400&q=80';
+  if (n.includes('caesar') || n.includes('salad'))
+    return 'https://images.unsplash.com/photo-1512852939750-1305098529bf?w=400&q=80';
+  if (n.includes('rosemary') || n.includes('fries'))
+    return 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&q=80';
+  if (n.includes('botanical') || n.includes('soda'))
+    return 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80';
+  if (n.includes('old fashioned') || n.includes('smoked'))
+    return 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80';
+  if (n.includes('garlic') || n.includes('knots'))
+    return 'https://images.unsplash.com/photo-1573140401552-3fab0b24306f?w=400&q=80';
+  return 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80';
 };
 
 export default function Carrito() {
@@ -37,6 +70,8 @@ export default function Carrito() {
   const [direccion, setDireccion] = useState('');
   const [referencia, setReferencia] = useState('');
   const [mostrarConfirm, setMostrarConfirm] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const [imgError, setImgError] = useState({});
 
   // Geolocalización
   const [ubicando, setUbicando] = useState(false);
@@ -45,62 +80,71 @@ export default function Carrito() {
   const [geoError, setGeoError] = useState(null);
 
   // Pago
-  const [metodoPago, setMetodoPago] = useState('tarjeta');
+  const [metodoPago, setMetodoPago] = useState('efectivo');
   const [numTarjeta, setNumTarjeta] = useState('');
   const [nombreTarjeta, setNombreTarjeta] = useState('');
   const [expiracion, setExpiracion] = useState('');
   const [cvv, setCvv] = useState('');
 
+  // Propina
+  const [propinaPct, setPropinaPct] = useState(10);
+  const [propinaCustom, setPropinaCustom] = useState('');
+
   // Pedido confirmado
   const [pedidoConfirmado, setPedidoConfirmado] = useState(null);
 
-  const obtenerUbicacion = () => {
-    if (!navigator.geolocation) {
-      setGeoError('Tu navegador no soporta geolocalización.');
+  const propinaAmount = propinaPct === 'otro'
+    ? ((parseFloat(propinaCustom) || 0) / 100) * total
+    : (propinaPct / 100) * total;
+  const totalFinal = total + propinaAmount;
+  const rangoEntrega = tiempoEstimado ? calcularRangoEntrega(tiempoEstimado) : null;
+
+  // Ref para siempre llamar la versión más reciente de confirmarPedido
+  const confirmarRef = useRef();
+
+  // Countdown automático del modal
+  useEffect(() => {
+    if (!mostrarConfirm) {
+      setCountdown(3);
       return;
     }
+    const id = setInterval(() => {
+      setCountdown(n => {
+        if (n <= 1) {
+          clearInterval(id);
+          confirmarRef.current();
+          return 0;
+        }
+        return n - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [mostrarConfirm]);
+
+  const obtenerUbicacion = () => {
+    if (!navigator.geolocation) { setGeoError('Tu navegador no soporta geolocalización.'); return; }
     setUbicando(true);
     setGeoError(null);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        const dist = haversine(
-          RESTAURANTE_LAT, RESTAURANTE_LON,
-          latitude, longitude
-        );
+        const dist = haversine(RESTAURANTE_LAT, RESTAURANTE_LON, latitude, longitude);
         setDistancia(dist.toFixed(1));
         setTiempoEstimado(estimarTiempo(dist));
-
-        // Obtener la dirección legible usando Nominatim (OpenStreetMap)
         try {
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
           const data = await res.json();
-          if (data && data.address) {
+          if (data?.address) {
             const { road, pedestrian, house_number, suburb, neighbourhood, city, town, village, state } = data.address;
-            
             const calle = road || pedestrian || '';
-            const numero = house_number ? ` ${house_number}` : '';
-            const direccionCalle = `${calle}${numero}`.trim();
-            
-            const colonia = suburb || neighbourhood || '';
-            const municipio = city || town || village || '';
-            
-            const referenciaPartes = [colonia, municipio, state].filter(Boolean);
-            const referenciaFormateada = referenciaPartes.join(', ').trim();
-            
-            setDireccion(direccionCalle || data.display_name.split(',')[0]);
-            setReferencia(referenciaFormateada);
+            const num = house_number ? ` ${house_number}` : '';
+            setDireccion(`${calle}${num}`.trim() || data.display_name.split(',')[0]);
+            setReferencia([suburb || neighbourhood, city || town || village, state].filter(Boolean).join(', '));
           }
-        } catch (error) {
-          console.error("Error al obtener la dirección:", error);
-        }
-
+        } catch { /* silencioso */ }
         setUbicando(false);
       },
-      () => {
-        setGeoError('No se pudo obtener tu ubicación. Asegúrate de darle permisos al navegador e inténtalo de nuevo.');
-        setUbicando(false);
-      },
+      () => { setGeoError('No se pudo obtener tu ubicación. Verifica los permisos del navegador.'); setUbicando(false); },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
@@ -129,369 +173,439 @@ export default function Carrito() {
     setEnviando(true);
     setError(null);
     try {
-
-      // Enviar TODO el pedido en UN SOLO POST
-      const itemsFormato = items.map(item => ({
-  productoId: item._id,
-  cantidad: item.cantidad
-}));
-
-const respuesta = await pedidosApi.post('/pedidos', {
-  cliente: {
-    nombre: nombreTarjeta || 'Cliente',
-    email: '',
-    telefono: ''
-  },
-  items: itemsFormato
-});
-
-      // Obtener el ID del pedido creado
+      const itemsFormato = items.map(item => ({ productoId: item._id, cantidad: item.cantidad }));
+      const respuesta = await pedidosApi.post('/pedidos', {
+        cliente: { nombre: nombreTarjeta || 'Cliente', email: '', telefono: '' },
+        items: itemsFormato,
+      });
       const pedidoId = respuesta.data.pedido._id;
-
-      // Guardar también en localStorage para compatibilidad
       const pedidosGuardados = JSON.parse(localStorage.getItem('pedidos') || '[]');
-      const nuevoPedido = {
-        id: pedidoId,
-        items: [...items],
-        total,
-        estado: 'pendiente',
-        fecha: new Date().toISOString(),
-        direccion: direccion.trim(),
-        referencia: referencia.trim(),
-        tiempoEstimado: tiempoEstimado ?? Math.floor(Math.random() * 15) + 25,
-        distanciaKm: distancia,
-        metodoPago,
-      };
-      localStorage.setItem('pedidos', JSON.stringify([nuevoPedido, ...pedidosGuardados]));
-
-      // Limpiar y redirigir
+      localStorage.setItem('pedidos', JSON.stringify([{
+        id: pedidoId, items: [...items], total: totalFinal, estado: 'pendiente',
+        fecha: new Date().toISOString(), direccion: direccion.trim(),
+        referencia: referencia.trim(), tiempoEstimado: tiempoEstimado ?? 30,
+        distanciaKm: distancia, metodoPago,
+      }, ...pedidosGuardados]));
       vaciarCarrito();
-setPedidoConfirmado(pedidoId);
-setMostrarConfirm(false);
+      setPedidoConfirmado(pedidoId);
     } catch (err) {
-      const mensajeError = err.response?.data?.error || err.response?.data?.mensaje || 'Error al crear el pedido';
-      setError(mensajeError);
-      console.error('Error detallado:', err.response?.data || err.message);
+      setError(err.response?.data?.error || err.response?.data?.mensaje || 'Error al crear el pedido');
     } finally {
       setEnviando(false);
     }
   };
 
+  // Actualizar ref con la función más reciente
+  confirmarRef.current = confirmarPedido;
+
   const tipoTarjeta = () => {
     const n = numTarjeta.replace(/\s/g, '');
-    if (n.startsWith('4')) return 'visa';
-    if (n.startsWith('5')) return 'mastercard';
-    if (n.startsWith('3')) return 'amex';
+    if (n.startsWith('4')) return 'VISA';
+    if (n.startsWith('5')) return 'MC';
+    if (n.startsWith('3')) return 'AMEX';
     return null;
   };
 
+  // ── Pantalla de éxito ──────────────────────────────────────────
   if (pedidoConfirmado) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center text-center gap-6 px-6">
+        <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mb-2">
+          <span className="material-symbols-outlined text-green-400" style={{ fontSize: 52 }}>check_circle</span>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-on-surface mb-1">¡Pedido enviado!</h1>
+          <p className="text-neutral-400 text-sm">Tu pedido ya fue enviado a cocina</p>
+          {rangoEntrega && (
+            <p className="text-orange-500 font-semibold mt-2 text-sm">
+              Entrega estimada: {rangoEntrega}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button
+            onClick={() => navigate(`/pedido/${pedidoConfirmado}`)}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+          >
+            <span className="material-symbols-outlined">receipt_long</span>
+            Ver estado del pedido
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            className="border border-neutral-700 text-neutral-300 px-6 py-3 rounded-xl font-bold hover:bg-neutral-800 transition-colors"
+          >
+            Volver al menú
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Vista principal ────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-center gap-6">
-      <h1 className="text-2xl font-bold text-green-500">
-        Pedido confirmado correctamente
-      </h1>
-
-      <p className="text-neutral-400">
-        Tu pedido ya fue enviado a cocina 🍽️
-      </p>
-
-      <button
-        onClick={() => navigate('/')}
-        className="bg-orange-500 text-white px-6 py-3 rounded-xl font-bold"
-      >
-        Ir al menú
-      </button>
-    </div>
-  );
-}
-
-  return (
-    <div className="min-h-screen bg-surface text-on-surface">
+    <div className="min-h-screen bg-background text-on-surface">
       <Header />
 
-      <main className="max-w-5xl mx-auto px-6 pb-32 pt-8">
-        <div className="mb-8">
-          <h1 className="text-headline-lg text-on-surface mb-2">Finalizar Pedido</h1>
-          <p className="text-on-surface-variant text-body-md">Revisa tu pedido, dirección y método de pago</p>
+      <main className="max-w-5xl mx-auto px-4 pt-6" style={{ paddingBottom: 'max(128px, calc(80px + env(safe-area-inset-bottom)))' }}>
+
+        {/* Encabezado */}
+        <div className="flex items-center gap-3 mb-6">
+          <button onClick={() => navigate('/')} className="text-neutral-400 hover:text-white transition-colors p-1">
+            <span className="material-symbols-outlined">arrow_back</span>
+          </button>
+          <div>
+            <h1 className="text-xl font-black text-on-surface">Tu pedido</h1>
+            <p className="text-neutral-500 text-xs">La Terraza del Mar</p>
+          </div>
         </div>
 
         {items.length === 0 ? (
           <div className="flex flex-col items-center py-20 gap-4">
-            <span className="material-symbols-outlined text-6xl text-neutral-600">shopping_cart</span>
-            <p className="text-neutral-500 text-lg">Tu carrito está vacío</p>
-            <button onClick={() => navigate('/')} className="bg-primary-container text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2">
+            <span className="material-symbols-outlined text-6xl text-neutral-700">shopping_cart</span>
+            <p className="text-neutral-500 text-lg font-semibold">Tu carrito está vacío</p>
+            <button
+              onClick={() => navigate('/')}
+              className="bg-orange-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-600 transition-colors"
+            >
               <span className="material-symbols-outlined">restaurant_menu</span>
               Ver Menú
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            {/* Columna izquierda */}
-            <div className="lg:col-span-2 space-y-5">
+            {/* ── Columna principal ── */}
+            <div className="lg:col-span-2 space-y-4">
 
-              {/* Items */}
-              {items.map(item => (
-                <div key={item._id} className="bg-surface-container border border-outline-variant rounded-xl p-4 flex gap-4 items-center">
-                  <div className="w-20 h-20 bg-neutral-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="material-symbols-outlined text-3xl text-neutral-600">restaurant</span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-headline-sm text-on-surface">{item.nombre}</h3>
-                      <button onClick={() => eliminarItem(item._id)} className="text-neutral-600 hover:text-red-400 transition-colors ml-2">
-                        <span className="material-symbols-outlined text-xl">delete</span>
-                      </button>
+              {/* Items del carrito */}
+              <div className="bg-surface-container border border-neutral-800 rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
+                  <span className="font-bold text-sm text-on-surface flex items-center gap-2">
+                    <span className="material-symbols-outlined text-orange-500 text-base">store</span>
+                    La Terraza del Mar
+                  </span>
+                  <span className="text-xs text-neutral-500">
+                    {items.length} artículo{items.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {items.map((item, idx) => (
+                  <div
+                    key={item._id}
+                    className={`flex gap-3 p-4 ${idx < items.length - 1 ? 'border-b border-neutral-800' : ''}`}
+                  >
+                    {/* Imagen */}
+                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-neutral-800">
+                      {imgError[item._id] ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-2xl text-neutral-600">restaurant</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={item.imagen || imagenPorNombre(item.nombre)}
+                          alt={item.nombre}
+                          onError={() => setImgError(prev => ({ ...prev, [item._id]: true }))}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
                     </div>
-                    <p className="text-neutral-500 text-xs mt-0.5">${item.precio} c/u</p>
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className="font-bold text-orange-500">${(item.precio * item.cantidad).toFixed(2)}</span>
-                      <div className="flex items-center bg-surface-container-high rounded-full border border-outline-variant">
-                        <button onClick={() => cambiarCantidad(item._id, -1)} className="p-1 hover:text-orange-500 transition-colors">
-                          <span className="material-symbols-outlined text-lg">remove</span>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-2">
+                        <p className="font-semibold text-sm text-on-surface leading-tight">{item.nombre}</p>
+                        <button
+                          onClick={() => eliminarItem(item._id)}
+                          className="text-neutral-600 hover:text-red-400 transition-colors flex-shrink-0"
+                        >
+                          <span className="material-symbols-outlined text-lg">close</span>
                         </button>
-                        <span className="px-3 font-semibold text-sm">{String(item.cantidad).padStart(2, '0')}</span>
-                        <button onClick={() => cambiarCantidad(item._id, 1)} className="p-1 hover:text-orange-500 transition-colors">
-                          <span className="material-symbols-outlined text-lg">add</span>
-                        </button>
+                      </div>
+                      <p className="text-neutral-600 text-xs mt-0.5">${item.precio.toFixed(2)} c/u</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-orange-500 font-bold text-sm">
+                          ${(item.precio * item.cantidad).toFixed(2)}
+                        </span>
+                        <div className="flex items-center gap-1 bg-neutral-900 rounded-full border border-neutral-700">
+                          <button
+                            onClick={() => cambiarCantidad(item._id, -1)}
+                            className="w-7 h-7 flex items-center justify-center hover:text-orange-500 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-base">remove</span>
+                          </button>
+                          <span className="text-sm font-bold w-5 text-center">{item.cantidad}</span>
+                          <button
+                            onClick={() => cambiarCantidad(item._id, 1)}
+                            className="w-7 h-7 flex items-center justify-center hover:text-orange-500 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-base">add</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
 
-              <button onClick={() => navigate('/')} className="flex items-center gap-2 text-orange-500 font-semibold hover:underline">
-                <span className="material-symbols-outlined">add_circle</span>
-                Agregar más productos
-              </button>
+                <div className="px-4 py-3 border-t border-neutral-800">
+                  <button
+                    onClick={() => navigate('/')}
+                    className="flex items-center gap-1 text-orange-500 text-sm font-semibold hover:underline"
+                  >
+                    <span className="material-symbols-outlined text-sm">add_circle</span>
+                    Agregar más productos
+                  </button>
+                </div>
+              </div>
 
               {/* Dirección */}
-              <div className="bg-surface-container border border-outline-variant rounded-xl p-5 space-y-4">
-                <h3 className="font-bold text-on-surface flex items-center gap-2">
-                  <span className="material-symbols-outlined text-orange-500">location_on</span>
+              <div className="bg-surface-container border border-neutral-800 rounded-2xl p-4 space-y-3">
+                <h3 className="font-bold text-on-surface flex items-center gap-2 text-sm">
+                  <span className="material-symbols-outlined text-orange-500 text-base">location_on</span>
                   Dirección de entrega
                 </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider font-bold block mb-1">Calle y número *</label>
-                    <input
-                      type="text"
-                      placeholder="Ej: Calle Macedonio Alcalá 302"
-                      value={direccion}
-                      onChange={e => setDireccion(e.target.value)}
-                      className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider font-bold block mb-1">Colonia / Referencia</label>
-                    <input
-                      type="text"
-                      placeholder="Ej: Col. Centro, junto al mercado"
-                      value={referencia}
-                      onChange={e => setReferencia(e.target.value)}
-                      className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
-                    />
-                  </div>
-                </div>
 
-                {/* Botón geolocalización */}
+                <input
+                  type="text"
+                  placeholder="Calle y número *"
+                  value={direccion}
+                  onChange={e => setDireccion(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
+                />
+                <input
+                  type="text"
+                  placeholder="Colonia / Referencia"
+                  value={referencia}
+                  onChange={e => setReferencia(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
+                />
+
                 <button
                   onClick={obtenerUbicacion}
                   disabled={ubicando}
-                  className="w-full flex items-center justify-center gap-2 border border-orange-500/40 text-orange-400 py-2.5 rounded-lg text-sm font-semibold hover:bg-orange-500/10 transition-colors disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 border border-orange-500/40 text-orange-400 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-500/10 transition-colors disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-lg">{ubicando ? 'sync' : 'my_location'}</span>
+                  <span className={`material-symbols-outlined text-lg ${ubicando ? 'animate-spin' : ''}`}>
+                    {ubicando ? 'sync' : 'my_location'}
+                  </span>
                   {ubicando ? 'Obteniendo ubicación...' : 'Usar mi ubicación GPS'}
                 </button>
 
                 {geoError && <p className="text-red-400 text-xs">{geoError}</p>}
 
-                {distancia && tiempoEstimado && (
-                  <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-lg p-3">
-                    <span className="material-symbols-outlined text-tertiary">route</span>
+                {rangoEntrega && (
+                  <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl p-3">
+                    <span className="material-symbols-outlined text-green-400 text-lg">schedule</span>
                     <div>
-                      <p className="text-xs text-neutral-400">Distancia al restaurante</p>
-                      <p className="text-sm font-bold text-on-surface">
-                        {distancia} km — <span className="text-tertiary">~{tiempoEstimado} min de entrega</span>
-                      </p>
+                      <p className="text-xs text-neutral-400">Hora de entrega estimada</p>
+                      <p className="text-sm font-bold text-on-surface">{rangoEntrega}</p>
+                      <p className="text-xs text-neutral-500">{distancia} km · ~{tiempoEstimado} min</p>
                     </div>
                   </div>
                 )}
-
-                <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
-                  <span className="material-symbols-outlined text-orange-500 text-sm mt-0.5">info</span>
-                  <p className="text-xs text-neutral-400">
-                    Restaurante en <span className="text-white font-semibold">Oaxaca de Juárez, Oax.</span> — Solo entregas dentro de la ciudad.
-                  </p>
-                </div>
               </div>
 
               {/* Método de pago */}
-              <div className="bg-surface-container border border-outline-variant rounded-xl p-5 space-y-4">
-                <h3 className="font-bold text-on-surface flex items-center gap-2">
-                  <span className="material-symbols-outlined text-orange-500">credit_card</span>
+              <div className="bg-surface-container border border-neutral-800 rounded-2xl p-4 space-y-3">
+                <h3 className="font-bold text-on-surface flex items-center gap-2 text-sm">
+                  <span className="material-symbols-outlined text-orange-500 text-base">credit_card</span>
                   Método de pago
                 </h3>
 
-                {/* Selector */}
                 <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setMetodoPago('tarjeta')}
-                    className={`flex items-center gap-2 p-3 rounded-xl border font-semibold text-sm transition-all ${
-                      metodoPago === 'tarjeta'
-                        ? 'border-orange-500 bg-orange-500/10 text-orange-400'
-                        : 'border-neutral-700 text-neutral-500 hover:border-neutral-500'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-lg">credit_card</span>
-                    Tarjeta
-                  </button>
-                  <button
-                    onClick={() => setMetodoPago('efectivo')}
-                    className={`flex items-center gap-2 p-3 rounded-xl border font-semibold text-sm transition-all ${
-                      metodoPago === 'efectivo'
-                        ? 'border-orange-500 bg-orange-500/10 text-orange-400'
-                        : 'border-neutral-700 text-neutral-500 hover:border-neutral-500'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-lg">payments</span>
-                    Efectivo
-                  </button>
+                  {[
+                    { id: 'efectivo', icon: 'payments', label: 'Efectivo' },
+                    { id: 'tarjeta', icon: 'credit_card', label: 'Tarjeta' },
+                  ].map(({ id, icon, label }) => (
+                    <button
+                      key={id}
+                      onClick={() => setMetodoPago(id)}
+                      className={`flex items-center gap-2 p-3 rounded-xl border font-semibold text-sm transition-all ${
+                        metodoPago === id
+                          ? 'border-orange-500 bg-orange-500/10 text-orange-400'
+                          : 'border-neutral-700 text-neutral-500 hover:border-neutral-500'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-lg">{icon}</span>
+                      {label}
+                    </button>
+                  ))}
                 </div>
 
                 {metodoPago === 'efectivo' && (
-                  <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-                    <span className="material-symbols-outlined text-yellow-400">info</span>
-                    <p className="text-xs text-neutral-400">Paga al repartidor al recibir tu pedido. Ten el monto exacto.</p>
+                  <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                    <span className="material-symbols-outlined text-yellow-400 text-lg">info</span>
+                    <p className="text-xs text-neutral-400">
+                      Por favor confirma el método de pago seleccionado. Paga al repartidor al recibir tu pedido.
+                    </p>
                   </div>
                 )}
 
                 {metodoPago === 'tarjeta' && (
                   <div className="space-y-3">
-                    {/* Número de tarjeta */}
-                    <div>
-                      <label className="text-xs text-neutral-400 uppercase tracking-wider font-bold block mb-1">Número de tarjeta</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="1234 5678 9012 3456"
-                          value={numTarjeta}
-                          onChange={e => setNumTarjeta(formatCard(e.target.value))}
-                          className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600 pr-16"
-                        />
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-500 uppercase">
-                          {tipoTarjeta() === 'visa' && <span className="text-blue-400">VISA</span>}
-                          {tipoTarjeta() === 'mastercard' && <span className="text-red-400">MC</span>}
-                          {tipoTarjeta() === 'amex' && <span className="text-green-400">AMEX</span>}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Nombre */}
-                    <div>
-                      <label className="text-xs text-neutral-400 uppercase tracking-wider font-bold block mb-1">Nombre del titular</label>
+                    <div className="relative">
                       <input
-                        type="text"
-                        placeholder="Como aparece en la tarjeta"
-                        value={nombreTarjeta}
-                        onChange={e => setNombreTarjeta(e.target.value.toUpperCase())}
-                        className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
+                        type="text" inputMode="numeric" placeholder="1234 5678 9012 3456"
+                        value={numTarjeta}
+                        onChange={e => setNumTarjeta(formatCard(e.target.value))}
+                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600 pr-16"
+                      />
+                      {tipoTarjeta() && (
+                        <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black ${
+                          tipoTarjeta() === 'VISA' ? 'text-blue-400' : tipoTarjeta() === 'MC' ? 'text-red-400' : 'text-green-400'
+                        }`}>
+                          {tipoTarjeta()}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="text" placeholder="Nombre del titular"
+                      value={nombreTarjeta}
+                      onChange={e => setNombreTarjeta(e.target.value.toUpperCase())}
+                      className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="text" inputMode="numeric" placeholder="MM/AA"
+                        value={expiracion}
+                        onChange={e => setExpiracion(formatExpiry(e.target.value))}
+                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
+                      />
+                      <input
+                        type="password" inputMode="numeric" placeholder="CVV" maxLength={4}
+                        value={cvv}
+                        onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
                       />
                     </div>
-
-                    {/* Expiración + CVV */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-neutral-400 uppercase tracking-wider font-bold block mb-1">Vencimiento</label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="MM/AA"
-                          value={expiracion}
-                          onChange={e => setExpiracion(formatExpiry(e.target.value))}
-                          className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-neutral-400 uppercase tracking-wider font-bold block mb-1">CVV</label>
-                        <input
-                          type="password"
-                          inputMode="numeric"
-                          placeholder="•••"
-                          maxLength={4}
-                          value={cvv}
-                          onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                          className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-neutral-500">
-                      <span className="material-symbols-outlined text-sm text-tertiary">lock</span>
+                    <div className="flex items-center gap-2 text-xs text-neutral-600">
+                      <span className="material-symbols-outlined text-sm text-green-500">lock</span>
                       Pago seguro — tus datos están protegidos
                     </div>
                   </div>
                 )}
               </div>
+
+              {/* Propina */}
+              <div className="bg-surface-container border border-neutral-800 rounded-2xl p-4 space-y-3">
+                <h3 className="font-bold text-on-surface flex items-center gap-2 text-sm">
+                  <span className="material-symbols-outlined text-orange-500 text-base">volunteer_activism</span>
+                  Propina
+                </h3>
+                <p className="text-xs text-neutral-500">
+                  Puedes agradecer al repartidor con una propina
+                </p>
+
+                <div className="flex gap-2 flex-wrap">
+                  {[0, 5, 10, 15, 20].map(pct => (
+                    <button
+                      key={pct}
+                      onClick={() => setPropinaPct(pct)}
+                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                        propinaPct === pct
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
+                      }`}
+                    >
+                      {pct === 0 ? 'Sin propina' : `${pct}%`}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPropinaPct('otro')}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                      propinaPct === 'otro'
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
+                    }`}
+                  >
+                    Otro
+                  </button>
+                </div>
+
+                {propinaPct === 'otro' && (
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 text-sm font-bold">%</span>
+                    <input
+                      type="number" min="0" max="100" placeholder="0"
+                      value={propinaCustom}
+                      onChange={e => setPropinaCustom(e.target.value)}
+                      className="w-full bg-neutral-900 border border-neutral-700 rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
+                )}
+
+                {propinaAmount > 0 && (
+                  <p className="text-xs text-neutral-400">
+                    Propina: <span className="text-orange-400 font-bold">${propinaAmount.toFixed(2)}</span>
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Resumen */}
-            <div className="space-y-6">
-              <div className="bg-surface-container-high border border-outline-variant rounded-2xl p-6 shadow-xl sticky top-24">
-                <h2 className="text-headline-sm text-on-surface mb-6">Resumen del Pedido</h2>
+            {/* ── Resumen sticky ── */}
+            <div>
+              <div className="bg-surface-container-high border border-neutral-800 rounded-2xl p-5 sticky top-24 space-y-4">
+                <h2 className="font-bold text-on-surface">Resumen</h2>
 
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between text-on-surface-variant text-body-md">
-                    <span>Subtotal</span><span>${total.toFixed(2)}</span>
+                {/* Lista compacta de items */}
+                <div className="space-y-1.5">
+                  {items.map(item => (
+                    <div key={item._id} className="flex justify-between text-xs text-neutral-400">
+                      <span className="truncate pr-2">{item.nombre} <span className="text-neutral-600">×{item.cantidad}</span></span>
+                      <span className="flex-shrink-0">${(item.precio * item.cantidad).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="h-px bg-neutral-800" />
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-neutral-400">
+                    <span>Subtotal</span>
+                    <span>${total.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-on-surface-variant text-body-md">
-                    <span>Envío</span><span className="text-tertiary font-semibold">Gratis</span>
+                  <div className="flex justify-between text-neutral-400">
+                    <span>Envío</span>
+                    <span className="text-green-400 font-semibold">Gratis</span>
                   </div>
-                  <div className="h-px bg-outline-variant" />
-                  <div className="flex justify-between items-center">
-                    <span className="text-headline-sm text-on-surface">Total</span>
-                    <span className="text-headline-sm text-orange-500">${total.toFixed(2)}</span>
+                  {propinaAmount > 0 && (
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Propina</span>
+                      <span>${propinaAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="h-px bg-neutral-800" />
+                  <div className="flex justify-between font-bold text-on-surface text-base">
+                    <span>Total</span>
+                    <span className="text-orange-500">${totalFinal.toFixed(2)}</span>
                   </div>
                 </div>
 
-                <div className="space-y-2 mb-5">
-                  <div className="bg-surface-container p-3 rounded-lg border border-outline-variant flex items-center gap-3">
-                    <span className="material-symbols-outlined text-orange-500">location_on</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">Entrega en</p>
-                      <p className="text-xs font-medium text-on-surface truncate">
-                        {direccion || <span className="text-neutral-600 italic">Sin dirección</span>}
-                      </p>
-                    </div>
+                {/* Info entrega rápida */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center gap-2 text-xs text-neutral-500">
+                    <span className="material-symbols-outlined text-sm text-orange-500">schedule</span>
+                    <span>{rangoEntrega || '25 – 40 min'}</span>
                   </div>
-                  <div className="bg-surface-container p-3 rounded-lg border border-outline-variant flex items-center gap-3">
-                    <span className="material-symbols-outlined text-orange-500">schedule</span>
-                    <div className="flex-1">
-                      <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">Tiempo estimado</p>
-                      <p className="text-xs font-medium text-on-surface">
-                        {tiempoEstimado ? `~${tiempoEstimado} min` : '25 – 40 minutos'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="bg-surface-container p-3 rounded-lg border border-outline-variant flex items-center gap-3">
-                    <span className="material-symbols-outlined text-orange-500">
+                  <div className="flex items-center gap-2 text-xs text-neutral-500">
+                    <span className="material-symbols-outlined text-sm text-orange-500">
                       {metodoPago === 'tarjeta' ? 'credit_card' : 'payments'}
                     </span>
-                    <div className="flex-1">
-                      <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">Pago</p>
-                      <p className="text-xs font-medium text-on-surface">
-                        {metodoPago === 'tarjeta'
-                          ? numTarjeta ? `**** **** **** ${numTarjeta.replace(/\s/g, '').slice(-4)}` : 'Tarjeta'
-                          : 'Efectivo al entregar'}
-                      </p>
-                    </div>
+                    <span>
+                      {metodoPago === 'tarjeta'
+                        ? numTarjeta ? `**** ${numTarjeta.replace(/\s/g,'').slice(-4)}` : 'Tarjeta'
+                        : 'Pago en efectivo'}
+                    </span>
                   </div>
+                  {direccion && (
+                    <div className="flex items-center gap-2 text-xs text-neutral-500">
+                      <span className="material-symbols-outlined text-sm text-orange-500">location_on</span>
+                      <span className="truncate">{direccion}</span>
+                    </div>
+                  )}
                 </div>
 
                 {error && (
-                  <div className="mb-4 bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-lg">
+                  <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-xs p-3 rounded-xl">
                     {error}
                   </div>
                 )}
@@ -499,17 +613,10 @@ setMostrarConfirm(false);
                 <button
                   onClick={solicitarConfirmacion}
                   disabled={enviando}
-                  className="w-full bg-primary-container text-white font-bold text-headline-sm py-4 rounded-xl shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-xl transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-base"
                 >
-                  {enviando ? 'Enviando pedido...' : 'Confirmar pedido'}
+                  {enviando ? 'Enviando...' : `Pagar $${totalFinal.toFixed(2)}`}
                 </button>
-              </div>
-
-              <div className="bg-surface-container-low p-4 rounded-xl border border-dashed border-outline-variant flex gap-3 items-center">
-                <span className="material-symbols-outlined text-tertiary">auto_awesome</span>
-                <p className="text-body-md text-on-surface-variant">
-                  Gana <span className="text-tertiary font-bold">150 puntos</span> con este pedido!
-                </p>
               </div>
             </div>
           </div>
@@ -518,59 +625,106 @@ setMostrarConfirm(false);
 
       <BottomNav />
 
-      {/* Modal de confirmación */}
+      {/* ── Modal "Realizando pedido" estilo Didi ── */}
       {mostrarConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-6">
-          <div className="bg-surface-container-high border border-outline-variant rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-orange-500">receipt_long</span>
-              </div>
-              <h2 className="text-headline-sm text-on-surface">¿Confirmar pedido?</h2>
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-t-3xl md:rounded-2xl w-full md:max-w-sm shadow-2xl">
+
+            {/* Barra de agarre (mobile) */}
+            <div className="flex justify-center pt-3 pb-1 md:hidden">
+              <div className="w-10 h-1 rounded-full bg-neutral-700" />
             </div>
 
-            <div className="space-y-2 mb-5">
-              {items.map(item => (
-                <div key={item._id} className="flex justify-between text-sm text-on-surface-variant">
-                  <span>{item.nombre} x{item.cantidad}</span>
-                  <span className="text-on-surface font-semibold">${(item.precio * item.cantidad).toFixed(2)}</span>
-                </div>
-              ))}
-              <div className="h-px bg-outline-variant my-2" />
-              <div className="flex justify-between font-bold text-on-surface">
-                <span>Total</span>
-                <span className="text-orange-500">${total.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center gap-2 pt-1 text-xs text-neutral-400">
-                <span className="material-symbols-outlined text-sm text-orange-500">location_on</span>
-                <span className="truncate">{direccion}</span>
-              </div>
-              {tiempoEstimado && (
-                <div className="flex items-center gap-2 text-xs text-neutral-400">
-                  <span className="material-symbols-outlined text-sm text-orange-500">schedule</span>
-                  <span>Entrega estimada: ~{tiempoEstimado} min ({distancia} km)</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-xs text-neutral-400">
-                <span className="material-symbols-outlined text-sm text-orange-500">
-                  {metodoPago === 'tarjeta' ? 'credit_card' : 'payments'}
-                </span>
-                <span>{metodoPago === 'tarjeta' ? `Tarjeta *${numTarjeta.replace(/\s/g, '').slice(-4)}` : 'Efectivo al entregar'}</span>
-              </div>
-            </div>
+            <div className="p-6">
+              <h2 className="text-xl font-black text-on-surface mb-5">Realizando pedido</h2>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => setMostrarConfirm(false)}
-                className="flex-1 border border-outline-variant text-on-surface-variant py-3 rounded-xl font-bold hover:bg-neutral-800 transition-colors"
-              >
-                Cancelar
-              </button>
+              <div className="space-y-4">
+                {/* Dirección */}
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-neutral-400 text-lg mt-0.5">location_on</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-on-surface">{direccion}</p>
+                    {referencia && <p className="text-xs text-neutral-500">{referencia}</p>}
+                  </div>
+                  <span className="material-symbols-outlined text-green-400">check</span>
+                </div>
+
+                {/* Instrucciones */}
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-neutral-400 text-lg">meeting_room</span>
+                  <p className="flex-1 text-sm text-on-surface">Encontrarse en la puerta</p>
+                  <span className="material-symbols-outlined text-green-400">check</span>
+                </div>
+
+                {/* Hora */}
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-neutral-400 text-lg mt-0.5">schedule</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-on-surface">{rangoEntrega || '25 – 40 min'}</p>
+                    <p className="text-xs text-neutral-500">Hora de entrega estimada</p>
+                  </div>
+                  <span className="material-symbols-outlined text-green-400">check</span>
+                </div>
+
+                {/* Pago */}
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-neutral-400 text-lg mt-0.5">
+                    {metodoPago === 'tarjeta' ? 'credit_card' : 'payments'}
+                  </span>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-on-surface">
+                      {metodoPago === 'tarjeta' ? `Tarjeta **** ${numTarjeta.replace(/\s/g,'').slice(-4)}` : 'Pago en efectivo'}
+                    </p>
+                    <p className="text-xs text-orange-400">Por favor confirma el método de pago seleccionado</p>
+                  </div>
+                  <span className="material-symbols-outlined text-green-400">check</span>
+                </div>
+
+                {/* Items */}
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-neutral-400 text-lg mt-0.5">receipt_long</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-on-surface mb-1">Información del pedido</p>
+                    {items.map(item => (
+                      <p key={item._id} className="text-xs text-neutral-500">
+                        x{item.cantidad} {item.nombre}
+                      </p>
+                    ))}
+                  </div>
+                  <span className="material-symbols-outlined text-green-400">check</span>
+                </div>
+              </div>
+
+              {/* Totales */}
+              <div className="mt-5 pt-4 border-t border-neutral-800 space-y-1">
+                <div className="flex justify-between text-sm text-neutral-400">
+                  <span>Tarifa artículos</span>
+                  <span>${total.toFixed(2)}</span>
+                </div>
+                {propinaAmount > 0 && (
+                  <div className="flex justify-between text-sm text-neutral-400">
+                    <span>Propina</span>
+                    <span>${propinaAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-on-surface text-base pt-1">
+                  <span>Total</span>
+                  <span className="text-orange-500">${totalFinal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Botones */}
               <button
                 onClick={confirmarPedido}
-                className="flex-1 bg-primary-container text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition-colors"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-xl text-base transition-all active:scale-95 mt-5"
               >
-                Sí, ordenar
+                OK ({countdown}s)
+              </button>
+              <button
+                onClick={() => setMostrarConfirm(false)}
+                className="w-full text-neutral-400 font-semibold py-3 mt-2 hover:text-white transition-colors text-sm"
+              >
+                Editar
               </button>
             </div>
           </div>
@@ -578,4 +732,4 @@ setMostrarConfirm(false);
       )}
     </div>
   );
-} 
+}

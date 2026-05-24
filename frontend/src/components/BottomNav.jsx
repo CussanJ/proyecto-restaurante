@@ -11,14 +11,17 @@ const adminLinks = [
   { icon: 'dashboard', label: 'Dashboard', to: '/admin/cocina' },
   { icon: 'inventory_2', label: 'Inventario', to: '/admin/inventario' },
   { icon: 'receipt_long', label: 'Pedidos', to: '/carrito' },
-  { icon: 'restaurant_menu', label: 'Menú', to: '/' },
+  { icon: 'restaurant_menu', label: 'Menú', to: '/menu' },
 ];
 
 export default function BottomNav({ admin = false }) {
   const links = admin ? adminLinks : clienteLinks;
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 backdrop-blur-md bg-neutral-900/95 border-t border-neutral-800 shadow-[0_-4px_12px_rgba(0,0,0,0.5)] rounded-t-2xl">
+    <nav
+      className="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pt-3 backdrop-blur-md bg-neutral-900/95 border-t border-neutral-800 shadow-[0_-4px_12px_rgba(0,0,0,0.5)] rounded-t-2xl pb-safe"
+      style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+    >
       {links.map(({ icon, label, to }) => (
         <NavLink
           key={label}
