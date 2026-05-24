@@ -14,9 +14,13 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 bg-neutral-900 border-r border-neutral-800 z-40">
-      <div className="p-6 border-b border-neutral-800">
-        <h1 className="text-lg font-bold text-orange-500">La Terraza del Mar</h1>
-        <p className="text-[10px] text-neutral-500 uppercase tracking-widest mt-1">Admin Portal</p>
+      <div className="p-5 border-b border-neutral-800 flex flex-col items-center gap-2">
+        <img
+          src="/logo.png"
+          alt="La Terraza del Mar"
+          className="h-28 w-auto object-contain"
+        />
+        <p className="text-[10px] text-neutral-500 uppercase tracking-widest">Admin Portal</p>
       </div>
       <nav className="flex-1 px-4 space-y-1 pt-4">
         {navItems.map(({ icon, label, to }) => (
