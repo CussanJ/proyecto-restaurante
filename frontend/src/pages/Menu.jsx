@@ -383,16 +383,18 @@ export default function Menu() {
       </main>
 
       {/* Botón pedidos */}
-      <button
-        onClick={() => navigate('/pedidos')}
-        className={`fixed right-6 md:right-10 z-40 bg-neutral-900 border border-neutral-700 text-white rounded-full p-4 shadow-xl hover:scale-105 transition-all ${
-          totalItems > 0 ? 'bottom-44' : 'bottom-24'
-        }`}
-      >
-        <span className="material-symbols-outlined">
-          receipt_long
-        </span>
-      </button>
+      {!admin && (
+        <button
+          onClick={() => navigate('/pedidos')}
+          className={`fixed right-6 md:right-10 z-40 bg-neutral-900 border border-neutral-700 text-white rounded-full p-4 shadow-xl hover:scale-105 transition-all ${
+            totalItems > 0 ? 'bottom-44' : 'bottom-24'
+          }`}
+        >
+          <span className="material-symbols-outlined">
+            receipt_long
+          </span>
+        </button>
+      )}
 
       {/* FAB carrito */}
       {totalItems > 0 && (

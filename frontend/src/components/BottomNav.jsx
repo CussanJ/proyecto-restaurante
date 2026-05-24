@@ -10,7 +10,6 @@ const clienteLinks = [
 const adminLinks = [
   { icon: 'dashboard', label: 'Dashboard', to: '/admin/cocina' },
   { icon: 'inventory_2', label: 'Inventario', to: '/admin/inventario' },
-  { icon: 'receipt_long', label: 'Pedidos', to: '/carrito' },
   { icon: 'restaurant_menu', label: 'Menú', to: '/menu' },
 ];
 
