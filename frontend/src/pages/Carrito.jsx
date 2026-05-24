@@ -88,6 +88,7 @@ export default function Carrito() {
   // Propina
   const [propinaPct, setPropinaPct] = useState(10);
   const [propinaCustom, setPropinaCustom] = useState('');
+  const enviandoRef = useRef(false);
 
   // Pedido confirmado
   const [pedidoConfirmado, setPedidoConfirmado] = useState(null);
@@ -146,6 +147,9 @@ export default function Carrito() {
   };
 
   const confirmarPedido = async () => {
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
+
     setMostrarConfirm(false);
     setEnviando(true);
     setError(null);
@@ -154,6 +158,10 @@ export default function Carrito() {
       const respuesta = await pedidosApi.post('/pedidos', {
         cliente: { nombre: nombreTarjeta || 'Cliente', email: '', telefono: '' },
         items: itemsFormato,
+        direccion: direccion.trim(),
+        referencia: referencia.trim(),
+        metodoPago,
+        propina: propinaAmount
       });
       const pedidoId = respuesta.data.pedido._id;
       const pedidosGuardados = JSON.parse(localStorage.getItem('pedidos') || '[]');
@@ -161,12 +169,13 @@ export default function Carrito() {
         id: pedidoId, items: [...items], total: totalFinal, estado: 'pendiente',
         fecha: new Date().toISOString(), direccion: direccion.trim(),
         referencia: referencia.trim(), tiempoEstimado: tiempoEstimado ?? 30,
-        distanciaKm: distancia, metodoPago,
+        distanciaKm: distancia, metodoPago, propina: propinaAmount
       }, ...pedidosGuardados]));
       vaciarCarrito();
       setPedidoConfirmado(pedidoId);
     } catch (err) {
       setError(err.response?.data?.error || err.response?.data?.mensaje || 'Error al crear el pedido');
+      enviandoRef.current = false;
     } finally {
       setEnviando(false);
     }

@@ -7,7 +7,7 @@ const INVENTARIO_URL = 'http://localhost:3002/inventario';
 
 const crearPedido = async (req, res) => {
     try {
-        const { cliente, items, direccion, referencia, metodoPago } = req.body;
+        const { cliente, items, direccion, referencia, metodoPago, propina } = req.body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({
@@ -61,8 +61,11 @@ const crearPedido = async (req, res) => {
             }
         }
 
+        const propinaNum = Number(propina) || 0;
+        total += propinaNum;
+
         // Guardar pedido primero
-        const pedido = new Pedido({ cliente, detalle, total, direccion, referencia, metodoPago });
+        const pedido = new Pedido({ cliente, detalle, total, direccion, referencia, metodoPago, propina: propinaNum });
         await pedido.save();
 
         // Actualizar inventario de cada producto en el pedido
