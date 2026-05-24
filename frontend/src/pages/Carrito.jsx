@@ -99,8 +99,10 @@ export default function Carrito() {
   const totalFinal = total + propinaAmount;
   const rangoEntrega = tiempoEstimado ? calcularRangoEntrega(tiempoEstimado) : null;
 
-  // Ref para siempre llamar la versión más reciente de confirmarPedido
+  // Refs para el countdown — confirmarRef siempre apunta a la versión más reciente,
+  // intervalRef permite cancelarlo si el usuario hace clic antes de que expire.
   const confirmarRef = useRef();
+  const intervalRef  = useRef(null);
 
   // Countdown automático del modal
   useEffect(() => {
@@ -112,13 +114,15 @@ export default function Carrito() {
       setCountdown(n => {
         if (n <= 1) {
           clearInterval(id);
+          intervalRef.current = null;
           confirmarRef.current();
           return 0;
         }
         return n - 1;
       });
     }, 1000);
-    return () => clearInterval(id);
+    intervalRef.current = id;
+    return () => { clearInterval(id); intervalRef.current = null; };
   }, [mostrarConfirm]);
 
   const obtenerUbicacion = () => {
@@ -169,6 +173,11 @@ export default function Carrito() {
   };
 
   const confirmarPedido = async () => {
+    // Cancelar el countdown si el usuario hizo clic antes de que expirara
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     setMostrarConfirm(false);
     setEnviando(true);
     setError(null);
@@ -533,11 +542,29 @@ export default function Carrito() {
                   </div>
                 )}
 
-                {propinaAmount > 0 && (
-                  <p className="text-xs text-neutral-400">
-                    Propina: <span className="text-orange-400 font-bold">${propinaAmount.toFixed(2)}</span>
-                  </p>
-                )}
+                {/* Desglose: subtotal + propina + total a pagar */}
+                <div className="bg-neutral-950 rounded-xl border border-neutral-700 p-3 space-y-1.5">
+                  <div className="flex justify-between text-xs text-neutral-400">
+                    <span>Subtotal</span>
+                    <span>${total.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-neutral-400">
+                    <span>
+                      Propina&nbsp;
+                      <span className="text-orange-400 font-bold">
+                        ({propinaPct === 'otro' ? `${propinaCustom || 0}%` : `${propinaPct}%`})
+                      </span>
+                    </span>
+                    <span className={propinaAmount > 0 ? 'text-orange-400 font-semibold' : 'text-neutral-600'}>
+                      {propinaAmount > 0 ? `+$${propinaAmount.toFixed(2)}` : '$0.00'}
+                    </span>
+                  </div>
+                  <div className="h-px bg-neutral-700" />
+                  <div className="flex justify-between font-bold text-sm">
+                    <span className="text-on-surface">Total a pagar</span>
+                    <span className="text-orange-500 text-base">${totalFinal.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
             </div>
 

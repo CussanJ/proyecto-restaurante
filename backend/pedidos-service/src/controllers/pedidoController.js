@@ -182,10 +182,20 @@ const eliminarPedido = async (req, res) => {
     }
 };
 
+const eliminarHistorial = async (req, res) => {
+    try {
+        const resultado = await Pedido.deleteMany({ estado: 'entregado' });
+        res.json({ mensaje: `${resultado.deletedCount} pedidos eliminados del historial.` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 module.exports = {
     crearPedido,
     obtenerPedidos,
     obtenerPedidoPorId,
     cambiarEstado,
-    eliminarPedido
+    eliminarPedido,
+    eliminarHistorial,
 };

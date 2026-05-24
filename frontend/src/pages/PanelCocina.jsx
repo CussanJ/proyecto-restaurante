@@ -36,7 +36,11 @@ export default function PanelCocina() {
       const { data } = await pedidosApi.get(
         '/pedidos?estado=pendiente,aceptado,preparando,buscando%20repartidor&limit=100'
       );
-      setPedidos(data.datos || data);
+      // Filtro de seguridad en el frontend: nunca mostrar entregados/cancelados en la sección activa
+      const activos = (data.datos || data).filter(
+        p => !['entregado', 'cancelado'].includes(p.estado)
+      );
+      setPedidos(activos);
     } catch (err) {
       console.error('Error cargando pedidos activos:', err);
     }
@@ -70,6 +74,250 @@ export default function PanelCocina() {
       if (accion.siguiente === 'entregado') cargarHistorial(pagina);
     } catch (err) {
       console.error('Error actualizando estado:', err.response?.data || err.message);
+    }
+  };
+
+  const eliminarDelHistorial = async (id) => {
+    if (!window.confirm('¿Eliminar este pedido del historial?')) return;
+    try {
+      await pedidosApi.delete(`/pedidos/${id}`);
+      cargarHistorial(pagina);
+    } catch (err) {
+      console.error('Error eliminando pedido:', err.response?.data || err.message);
+    }
+  };
+
+  const eliminarTodoHistorial = async () => {
+    if (!window.confirm('¿Eliminar TODO el historial? Esta acción no se puede deshacer.')) return;
+    try {
+      await pedidosApi.delete('/pedidos/historial/todos');
+      setHistorial([]);
+      setTotalPaginas(1);
+      setPagina(1);
+    } catch (err) {
+      console.error('Error eliminando historial:', err.response?.data || err.message);
+    }
+  };
+
+  const descargarReporte = async () => {
+    try {
+      const { data } = await pedidosApi.get('/pedidos?estado=entregado&limit=1000');
+      const todos = data.datos || [];
+      if (todos.length === 0) { alert('No hay pedidos en el historial para exportar.'); return; }
+
+      // Agrupar por mes
+      const porMes = {};
+      todos.forEach(p => {
+        const d   = new Date(p.fecha);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const nom = d.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+        if (!porMes[key]) porMes[key] = { nombre: nom, pedidos: [], total: 0 };
+        porMes[key].pedidos.push(p);
+        porMes[key].total += p.total || 0;
+      });
+
+      const totalGeneral = todos.reduce((s, p) => s + (p.total || 0), 0);
+      const promedio     = totalGeneral / todos.length;
+      const fechaHoy     = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+
+      const mesRows = Object.entries(porMes)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([, m]) => {
+          const pct = ((m.total / totalGeneral) * 100).toFixed(1);
+          const avg = (m.total / m.pedidos.length).toFixed(2);
+          return `<tr>
+            <td style="padding:9px 14px;border-bottom:1px solid #fde8d0;text-transform:capitalize;color:#1a1a1a">${m.nombre}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #fde8d0;text-align:center;color:#444">${m.pedidos.length}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #fde8d0;font-weight:bold;color:#c05e00">$${m.total.toFixed(2)}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #fde8d0;text-align:center">
+              <span style="background:#fff3e0;color:#e65100;padding:3px 10px;border-radius:12px;font-weight:bold;font-size:12px">${pct}%</span>
+            </td>
+            <td style="padding:9px 14px;border-bottom:1px solid #fde8d0;color:#888">$${avg}</td>
+          </tr>`;
+        }).join('');
+
+      const detalleRows = [...todos]
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+        .map((p, i) => {
+          const bg       = i % 2 === 0 ? '#ffffff' : '#fdf8f4';
+          const articulos = p.detalle?.map(d => `${d.cantidad}× ${d.nombre}`).join(', ') || '-';
+          return `<tr style="background:${bg}">
+            <td style="padding:7px 14px;border-bottom:1px solid #f5ece4;color:#888;font-size:11px;font-family:monospace">#${p._id.slice(-6).toUpperCase()}</td>
+            <td style="padding:7px 14px;border-bottom:1px solid #f5ece4;font-size:12px;color:#555">${new Date(p.fecha).toLocaleString('es-MX')}</td>
+            <td style="padding:7px 14px;border-bottom:1px solid #f5ece4;font-size:12px">${p.cliente?.nombre || 'Cliente'}</td>
+            <td style="padding:7px 14px;border-bottom:1px solid #f5ece4;font-size:11px;color:#777">${articulos}</td>
+            <td style="padding:7px 14px;border-bottom:1px solid #f5ece4;font-weight:bold;color:#c05e00;font-size:13px">$${(p.total || 0).toFixed(2)}</td>
+          </tr>`;
+        }).join('');
+
+      const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+        xmlns:x="urn:schemas-microsoft-com:office:excel"
+        xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>
+<x:ExcelWorksheet><x:Name>Reporte de Ventas</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+</head>
+<body style="margin:0;padding:0;background:#f5f0eb">
+<div style="font-family:Georgia,'Times New Roman',serif;max-width:860px;margin:0 auto;padding:40px 32px;background:#f5f0eb">
+
+  <!-- ══════════════ ENCABEZADO ELEGANTE ══════════════ -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:36px">
+    <tr>
+      <td style="background:#1a0e05;border-radius:16px;padding:0;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.25)">
+
+        <!-- Banda superior dorada -->
+        <div style="background:linear-gradient(90deg,#8B5E00,#f27a18,#e8a020,#f27a18,#8B5E00);height:5px"></div>
+
+        <!-- Contenido centrado -->
+        <div style="padding:44px 48px 40px;text-align:center">
+
+          <!-- Ornamento superior -->
+          <div style="font-size:13px;color:#8B6030;letter-spacing:6px;text-transform:uppercase;margin-bottom:20px;font-family:Arial,sans-serif">
+            ─── &nbsp; ✦ &nbsp; ───
+          </div>
+
+          <!-- Nombre del restaurante -->
+          <div style="font-size:52px;font-weight:bold;color:#f27a18;letter-spacing:2px;line-height:1;font-family:Georgia,serif;text-shadow:0 0 40px rgba(242,122,24,0.25)">
+            La Terraza del Mar
+          </div>
+
+          <!-- Línea decorativa naranja -->
+          <div style="margin:18px auto;width:120px;height:2px;background:linear-gradient(90deg,transparent,#f27a18,transparent)"></div>
+
+          <!-- Subtítulo del reporte -->
+          <div style="font-size:18px;color:#d4a574;letter-spacing:4px;text-transform:uppercase;font-family:Arial,sans-serif;font-weight:300;margin-bottom:6px">
+            Reporte de Ventas
+          </div>
+          <div style="font-size:13px;color:#7a5535;letter-spacing:2px;text-transform:uppercase;font-family:Arial,sans-serif">
+            Pedidos Entregados
+          </div>
+
+          <!-- Ornamento inferior -->
+          <div style="font-size:13px;color:#8B6030;letter-spacing:6px;margin-top:20px;font-family:Arial,sans-serif">
+            ─── &nbsp; ✦ &nbsp; ───
+          </div>
+
+          <!-- Fecha y total de pedidos -->
+          <table style="width:100%;border-collapse:collapse;margin-top:28px">
+            <tr>
+              <td style="width:50%;text-align:center;padding:14px 20px;border-right:1px solid #3a2010">
+                <div style="font-size:10px;color:#7a5535;text-transform:uppercase;letter-spacing:2px;font-family:Arial,sans-serif;margin-bottom:6px">Fecha de emisión</div>
+                <div style="font-size:15px;color:#d4a574;font-family:Arial,sans-serif;font-weight:600">${fechaHoy}</div>
+              </td>
+              <td style="width:50%;text-align:center;padding:14px 20px">
+                <div style="font-size:10px;color:#7a5535;text-transform:uppercase;letter-spacing:2px;font-family:Arial,sans-serif;margin-bottom:6px">Total de pedidos</div>
+                <div style="font-size:28px;font-weight:900;color:#f27a18;font-family:Arial,sans-serif;line-height:1">${todos.length}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Banda inferior dorada -->
+        <div style="background:linear-gradient(90deg,#8B5E00,#f27a18,#e8a020,#f27a18,#8B5E00);height:5px"></div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- ══════════════ TARJETAS RESUMEN ══════════════ -->
+  <table style="width:100%;border-collapse:separate;border-spacing:10px;margin-bottom:32px">
+    <tr>
+      <td style="background:#fff;border:1px solid #e8d5c0;border-top:3px solid #f27a18;border-radius:10px;padding:22px 20px;text-align:center;width:33%;vertical-align:top;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:10px;color:#b08050;font-weight:bold;text-transform:uppercase;letter-spacing:1.5px;font-family:Arial,sans-serif">Total de Pedidos</div>
+        <div style="font-size:40px;font-weight:900;color:#1a1a1a;margin:10px 0 4px;line-height:1;font-family:Arial,sans-serif">${todos.length}</div>
+        <div style="font-size:11px;color:#f27a18;font-family:Arial,sans-serif">pedidos entregados</div>
+      </td>
+      <td style="background:#fff;border:1px solid #e8d5c0;border-top:3px solid #c05e00;border-radius:10px;padding:22px 20px;text-align:center;width:33%;vertical-align:top;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:10px;color:#b08050;font-weight:bold;text-transform:uppercase;letter-spacing:1.5px;font-family:Arial,sans-serif">Ingresos Totales</div>
+        <div style="font-size:40px;font-weight:900;color:#c05e00;margin:10px 0 4px;line-height:1;font-family:Arial,sans-serif">$${totalGeneral.toFixed(2)}</div>
+        <div style="font-size:11px;color:#a08060;font-family:Arial,sans-serif">suma total de ventas</div>
+      </td>
+      <td style="background:#fff;border:1px solid #e8d5c0;border-top:3px solid #e8a020;border-radius:10px;padding:22px 20px;text-align:center;width:33%;vertical-align:top;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:10px;color:#b08050;font-weight:bold;text-transform:uppercase;letter-spacing:1.5px;font-family:Arial,sans-serif">Promedio por Pedido</div>
+        <div style="font-size:40px;font-weight:900;color:#1a1a1a;margin:10px 0 4px;line-height:1;font-family:Arial,sans-serif">$${promedio.toFixed(2)}</div>
+        <div style="font-size:11px;color:#a08060;font-family:Arial,sans-serif">valor promedio</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- ══════════════ RESUMEN MENSUAL ══════════════ -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
+    <tr>
+      <td style="padding-bottom:10px">
+        <div style="font-size:14px;font-weight:bold;color:#1a1a1a;text-transform:uppercase;letter-spacing:2px;font-family:Arial,sans-serif;display:inline-block;border-bottom:2px solid #f27a18;padding-bottom:4px">
+          Resumen por Mes
+        </div>
+      </td>
+    </tr>
+  </table>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:32px;border:1px solid #e8d5c0;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05)">
+    <thead>
+      <tr style="background:#1a0e05">
+        <th style="padding:12px 16px;color:#f27a18;text-align:left;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif">Mes</th>
+        <th style="padding:12px 16px;color:#f27a18;text-align:center;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif">Pedidos</th>
+        <th style="padding:12px 16px;color:#f27a18;text-align:left;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif">Ingresos</th>
+        <th style="padding:12px 16px;color:#f27a18;text-align:center;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif">% del Total</th>
+        <th style="padding:12px 16px;color:#f27a18;text-align:left;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif">Promedio</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${mesRows}
+      <tr style="background:#fff8f0">
+        <td style="padding:12px 16px;border-top:2px solid #f27a18;color:#c05e00;font-weight:bold;font-family:Arial,sans-serif;letter-spacing:0.5px">TOTAL GENERAL</td>
+        <td style="padding:12px 16px;border-top:2px solid #f27a18;text-align:center;color:#c05e00;font-weight:bold;font-family:Arial,sans-serif">${todos.length}</td>
+        <td style="padding:12px 16px;border-top:2px solid #f27a18;color:#c05e00;font-weight:bold;font-family:Arial,sans-serif">$${totalGeneral.toFixed(2)}</td>
+        <td style="padding:12px 16px;border-top:2px solid #f27a18;text-align:center;color:#c05e00;font-weight:bold;font-family:Arial,sans-serif">100%</td>
+        <td style="padding:12px 16px;border-top:2px solid #f27a18;color:#c05e00;font-weight:bold;font-family:Arial,sans-serif">$${promedio.toFixed(2)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════ DETALLE DE PEDIDOS ══════════════ -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
+    <tr>
+      <td style="padding-bottom:10px">
+        <div style="font-size:14px;font-weight:bold;color:#1a1a1a;text-transform:uppercase;letter-spacing:2px;font-family:Arial,sans-serif;display:inline-block;border-bottom:2px solid #f27a18;padding-bottom:4px">
+          Detalle de Pedidos
+        </div>
+      </td>
+    </tr>
+  </table>
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e8d5c0;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05)">
+    <thead>
+      <tr style="background:#1a0e05">
+        <th style="padding:12px 16px;color:#f27a18;text-align:left;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif">Pedido</th>
+        <th style="padding:12px 16px;color:#f27a18;text-align:left;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif">Fecha</th>
+        <th style="padding:12px 16px;color:#f27a18;text-align:left;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif">Cliente</th>
+        <th style="padding:12px 16px;color:#f27a18;text-align:left;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif">Artículos</th>
+        <th style="padding:12px 16px;color:#f27a18;text-align:left;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif">Total</th>
+      </tr>
+    </thead>
+    <tbody>${detalleRows}</tbody>
+  </table>
+
+  <!-- PIE DE PÁGINA -->
+  <div style="margin-top:36px;padding:16px 0;border-top:1px solid #d8c5b0;text-align:center">
+    <div style="font-size:13px;color:#8B6030;letter-spacing:4px;font-family:Arial,sans-serif;margin-bottom:6px">✦ &nbsp; ✦ &nbsp; ✦</div>
+    <div style="font-size:11px;color:#b09070;font-family:Arial,sans-serif;letter-spacing:0.3px">
+      © ${new Date().getFullYear()} &nbsp;<strong>La Terraza del Mar</strong>&nbsp; · &nbsp;Reporte generado el ${fechaHoy}
+    </div>
+  </div>
+</div>
+</body></html>`;
+
+      const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `reporte-ventas-${new Date().toISOString().split('T')[0]}.xls`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error generando reporte:', err);
+      alert('Error al generar el reporte.');
     }
   };
 
@@ -226,7 +474,27 @@ export default function PanelCocina() {
 
           {/* Historial */}
           <div className="mt-6">
-            <h3 className="text-xl font-bold mb-4 text-on-surface">Historial de pedidos</h3>
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+              <h3 className="text-xl font-bold text-on-surface">Historial de pedidos</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={descargarReporte}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-sm">download</span>
+                  Descargar Reporte
+                </button>
+                {historial.length > 0 && (
+                  <button
+                    onClick={eliminarTodoHistorial}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">delete_sweep</span>
+                    Limpiar historial
+                  </button>
+                )}
+              </div>
+            </div>
             <div className="space-y-3">
               {historial.length === 0 ? (
                 <p className="text-neutral-500 text-sm">No hay pedidos entregados aún.</p>
@@ -239,9 +507,18 @@ export default function PanelCocina() {
                         {new Date(pedido.fecha || Date.now()).toLocaleString('es-MX')}
                       </span>
                     </div>
-                    <span className="text-green-400 font-bold text-xs bg-green-400/10 px-2 py-1 rounded-full border border-green-500/20">
-                      Entregado
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-400 font-bold text-xs bg-green-400/10 px-2 py-1 rounded-full border border-green-500/20">
+                        Entregado
+                      </span>
+                      <button
+                        onClick={() => eliminarDelHistorial(pedido._id)}
+                        className="p-1 text-neutral-600 hover:text-red-400 transition-colors"
+                        title="Eliminar del historial"
+                      >
+                        <span className="material-symbols-outlined text-base">delete</span>
+                      </button>
+                    </div>
                   </div>
                   <ul className="space-y-1">
                     {pedido.detalle?.map(item => (
