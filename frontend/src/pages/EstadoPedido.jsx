@@ -4,32 +4,48 @@ import { pedidosApi } from '../services/api';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 
-const pasos = [
-  { icon: 'receipt_long', label: 'Recibido' },
-  { icon: 'restaurant', label: 'En preparaci�n' },
-  { icon: 'delivery_dining', label: 'En camino' },
-  { icon: 'check_circle', label: 'Entregado' },
+const PASOS = [
+  { icon: 'receipt_long',    label: 'Pedido\nrecibido',      estado: 'pendiente' },
+  { icon: 'restaurant',      label: 'Preparando\npedido',    estado: 'preparando' },
+  { icon: 'delivery_dining', label: 'Buscando\nrepartidor',  estado: 'buscando repartidor' },
+  { icon: 'location_on',     label: 'Pedido\nentregado',     estado: 'entregado' },
+];
+
+const ESTADO_A_IDX = {
+  'pendiente':           0,
+  'aceptado':            1, // se trata igual que preparando
+  'preparando':          1,
+  'buscando repartidor': 2,
+  'entregado':           3,
+};
+
+const TITULO = [
+  'Pedido recibido',
+  'Preparando tu pedido',
+  'En camino a tu ubicación',
+  '¡Pedido entregado!',
+];
+
+const MENSAJE = [
+  'Tu pedido fue recibido. ¡El restaurante comenzará a prepararlo en breve!',
+  'El chef está preparando tu pedido con mucho cuidado. ¡Ya casi está listo!',
+  'Tu repartidor ya está en camino. ¡Pronto llegará a tu puerta!',
+  '¡Tu pedido fue entregado! Esperamos que lo disfrutes. Buen provecho.',
 ];
 
 export default function EstadoPedido() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [pedido, setPedido] = useState(null);
-  const [estadoIdx, setEstadoIdx] = useState(0);
-  const [tiempoRestante, setTiempoRestante] = useState(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(null);
-
-  const estadoAIdx = { pendiente: 0, 'en preparaci�n': 1, 'en camino': 2, entregado: 3 };
+  const { id }       = useParams();
+  const navigate     = useNavigate();
+  const [pedido, setPedido]           = useState(null);
+  const [estadoIdx, setEstadoIdx]     = useState(0);
+  const [cargando, setCargando]       = useState(true);
+  const [error, setError]             = useState(null);
 
   const cargarPedido = async () => {
     try {
       const { data } = await pedidosApi.get(`/pedidos/${id}`);
       setPedido(data);
-      setEstadoIdx(estadoAIdx[data.estado] ?? 0);
-      if (tiempoRestante === null) {
-        setTiempoRestante(30);
-      }
+      setEstadoIdx(ESTADO_A_IDX[data.estado] ?? 0);
       setError(null);
     } catch (err) {
       console.error('Error al cargar pedido:', err);
@@ -45,35 +61,12 @@ export default function EstadoPedido() {
     return () => clearInterval(intervalo);
   }, [id]);
 
-  useEffect(() => {
-    if (tiempoRestante === null || tiempoRestante <= 0) return;
-    const intervalo = setInterval(() => {
-      setTiempoRestante((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 60000);
-    return () => clearInterval(intervalo);
-  }, [tiempoRestante]);
-
-  const mensajeEstado = [
-    'Tu pedido fue recibido y est� siendo procesado.',
-    (
-      <>
-        El chef est� preparando tu pedido. <span className="font-bold text-primary-container">�Ya casi listo!</span>
-      </>
-    ),
-    (
-      <>
-        Tu pedido est� en camino. <span className="font-bold text-yellow-400">�Pronto llegar�!</span>
-      </>
-    ),
-    <span className="font-bold text-tertiary">�Tu pedido fue entregado! Buen provecho.</span>,
-  ];
-
   if (cargando) {
     return (
       <div className="min-h-screen bg-background text-on-surface flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <span className="material-symbols-outlined text-6xl text-orange-500 animate-spin">sync</span>
-          <p className="text-on-surface-variant">Cargando pedido...</p>
+          <p className="text-on-surface-variant">Cargando tu pedido...</p>
         </div>
       </div>
     );
@@ -85,186 +78,219 @@ export default function EstadoPedido() {
         <div className="flex flex-col items-center gap-4">
           <span className="material-symbols-outlined text-6xl text-red-400">error</span>
           <p className="text-on-surface-variant">{error || 'Pedido no encontrado'}</p>
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="bg-primary-container text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2"
-          >
+          <button onClick={() => navigate('/')} className="bg-primary-container text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2">
             <span className="material-symbols-outlined">home</span>
-            Volver al men�
+            Volver al menú
           </button>
         </div>
       </div>
     );
   }
 
+  const entregado = estadoIdx === 3;
+
   return (
     <div className="min-h-screen bg-background text-on-surface">
       <Header />
 
-      <main className="max-w-7xl mx-auto px-6 pb-32 pt-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8 flex flex-col gap-6">
-          <section className="bg-surface-container rounded-xl p-6 border border-neutral-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <main className="max-w-2xl mx-auto px-4 pb-32 pt-8 flex flex-col gap-6">
+
+        {/* Título del estado actual */}
+        <section className="bg-surface-container rounded-2xl p-6 border border-neutral-800">
+          <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-headline-md text-on-surface mb-1">Pedido #{pedido._id?.slice(-6).toUpperCase() || id}</h1>
-              <p className="text-body-md text-on-surface-variant flex items-center gap-2">
-                <span className="material-symbols-outlined text-sm">schedule</span>
-                Tiempo estimado de entrega: <span className="text-white font-semibold ml-1">25 � 40 min</span>
+              <p className="text-xs text-neutral-500 uppercase tracking-widest font-bold mb-1">
+                Pedido #{pedido._id?.slice(-6).toUpperCase()}
               </p>
-              {pedido.direccion && (
-                <p className="text-body-md text-on-surface-variant flex items-center gap-2 mt-1">
-                  <span className="material-symbols-outlined text-sm text-orange-500">location_on</span>
-                  {pedido.direccion}
-                  {pedido.referencia ? ` � ${pedido.referencia}` : ''}
-                </p>
-              )}
+              <h1 className="text-2xl font-bold text-on-surface">{TITULO[estadoIdx]}</h1>
             </div>
-            <div className="bg-yellow-900/30 border border-yellow-600/50 px-5 py-3 rounded-xl text-center flex-shrink-0">
-              <span className="text-4xl font-bold text-yellow-400 block leading-none">{tiempoRestante ?? '�'}</span>
-              <span className="text-xs text-yellow-500 uppercase tracking-wider font-bold">min ETA</span>
-            </div>
-          </section>
-
-          <section className="bg-surface-container rounded-xl p-6 border border-neutral-800">
-            <div className="flex justify-between items-start relative">
-              <div className="absolute top-6 left-[12%] right-[12%] h-1 bg-neutral-800 rounded-full">
-                <div
-                  className="h-full bg-primary-container rounded-full transition-all duration-1000"
-                  style={{ width: `${(estadoIdx / (pasos.length - 1)) * 100}%` }}
-                />
+            {entregado ? (
+              <span className="material-symbols-outlined text-5xl text-green-400" style={{ fontVariationSettings: "'FILL' 1" }}>
+                check_circle
+              </span>
+            ) : (
+              <div className="flex flex-col items-center bg-orange-500/10 border border-orange-500/20 px-4 py-3 rounded-xl text-center flex-shrink-0">
+                <span className="text-2xl font-bold text-orange-400">25–40</span>
+                <span className="text-[10px] text-orange-500 uppercase tracking-wider font-bold">min</span>
               </div>
+            )}
+          </div>
+        </section>
 
-              {pasos.map((paso, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 flex-1 relative z-10">
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 ${
-                      i <= estadoIdx
-                        ? 'bg-primary-container text-white shadow-[0_0_15px_rgba(242,122,24,0.4)]'
-                        : 'bg-surface-container-highest border-2 border-neutral-700 text-neutral-500'
-                    } ${i === estadoIdx && estadoIdx < pasos.length - 1 ? 'animate-pulse' : ''}`}
+        {/* Barra de progreso estilo DiDi */}
+        <section className="bg-surface-container rounded-2xl px-4 py-6 border border-neutral-800">
+
+          {/* Línea + íconos */}
+          <div className="relative flex justify-between items-start">
+
+            {/* Línea de fondo */}
+            <div className="absolute top-5 md:top-7 left-5 md:left-7 right-5 md:right-7 h-1 md:h-1.5 bg-neutral-700 rounded-full z-0" />
+
+            {/* Línea naranja de progreso */}
+            <div
+              className="absolute top-5 md:top-7 left-5 md:left-7 h-1 md:h-1.5 bg-orange-500 rounded-full z-0 transition-all duration-700"
+              style={{ width: estadoIdx === 0 ? '0%' : `calc(${(estadoIdx / (PASOS.length - 1)) * 100}% - 10px)` }}
+            />
+
+            {/* Pasos */}
+            {PASOS.map((paso, i) => {
+              const activo  = i <= estadoIdx;
+              const current = i === estadoIdx;
+              return (
+                <div key={paso.estado} className="flex flex-col items-center gap-1.5 z-10" style={{ width: '20%' }}>
+
+                  {/* Círculo con ícono */}
+                  <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-500 ${
+                    activo
+                      ? 'bg-orange-500 shadow-lg shadow-orange-500/40'
+                      : 'bg-neutral-800 border-2 border-neutral-700'
+                  } ${current && !entregado ? 'ring-4 ring-orange-500/30 scale-110' : ''}`}
                   >
-                    <span className="material-symbols-outlined" style={i <= estadoIdx ? { fontVariationSettings: "'FILL' 1" } : {}}>
+                    <span
+                      className="material-symbols-outlined text-[18px] md:text-[26px] text-white"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >
                       {paso.icon}
                     </span>
                   </div>
-                  <span className={`text-xs font-bold text-center leading-tight ${i <= estadoIdx ? 'text-primary-container' : 'text-neutral-500'}`}>
+
+                  {/* Etiqueta */}
+                  <span className={`text-[9px] md:text-[10px] font-bold text-center leading-tight whitespace-pre-line ${
+                    current ? 'text-orange-400' : activo ? 'text-orange-300' : 'text-neutral-600'
+                  }`}>
                     {paso.label}
                   </span>
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
 
-            <div className="mt-6 pt-6 border-t border-neutral-800">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-primary-container shadow-[0_0_8px_rgba(242,122,24,0.8)] flex-shrink-0" />
-                <p className="text-body-md text-on-surface">{mensajeEstado[estadoIdx]}</p>
-              </div>
-            </div>
-          </section>
+          {/* Mensaje del paso actual */}
+          <div className="mt-6 pt-4 border-t border-neutral-800 flex items-center gap-3">
+            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${entregado ? 'bg-green-400' : 'bg-orange-500 animate-pulse'}`} />
+            <p className="text-sm text-on-surface">{MENSAJE[estadoIdx]}</p>
+          </div>
+        </section>
 
-          <section className="bg-surface-container rounded-xl border border-neutral-800 overflow-hidden">
-            <div className="px-4 py-3 bg-surface-container-high border-b border-neutral-800 flex items-center gap-3">
-              <span className="material-symbols-outlined text-orange-500">restaurant</span>
-              <div>
-                <p className="font-bold text-sm text-on-surface">La Terraza del Mar</p>
-                <p className="text-xs text-neutral-400">Av. Ju�rez 100, Centro, Oaxaca de Ju�rez, Oax.</p>
-              </div>
-              <div className="ml-auto flex items-center gap-1 bg-green-500/10 text-green-400 px-2 py-1 rounded-full text-xs font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                En l�nea
-              </div>
-            </div>
+        {/* Mapa con moto animada */}
+        <section className="bg-surface-container rounded-2xl border border-neutral-800 overflow-hidden">
+          <div className="relative">
             <iframe
               title="La Terraza del Mar"
-              src="https://maps.google.com/maps?q=Av+Juarez+100,Oaxaca+de+Juarez,Oaxaca,Mexico&output=embed&z=15"
+              src="https://maps.google.com/maps?q=Av+Juarez+100,Oaxaca+de+Juarez,Oaxaca,Mexico&output=embed&z=14"
               width="100%"
-              height="280"
-              style={{ border: 0, filter: 'grayscale(30%) contrast(1.1)' }}
+              height="260"
+              style={{ border: 0, filter: 'grayscale(20%) contrast(1.05)', display: 'block' }}
               allowFullScreen
               loading="lazy"
             />
-            <div className="px-4 py-3 bg-primary-container text-white text-sm font-bold text-center flex items-center justify-center gap-2">
-              <span className="material-symbols-outlined text-sm">delivery_dining</span>
-              {estadoIdx < 2 ? 'El repartidor saldr� pronto' : estadoIdx === 2 ? 'Repartidor en camino a tu direcci�n' : '�Pedido entregado!'}
-            </div>
-          </section>
-        </div>
 
-        <aside className="lg:col-span-4 flex flex-col gap-6">
-          <div className="bg-surface-container rounded-xl border border-neutral-800 overflow-hidden sticky top-24">
-            <div className="p-5 bg-surface-container-high border-b border-neutral-800">
-              <h2 className="text-headline-sm text-on-surface">Detalle del Pedido</h2>
-              <p className="text-[10px] text-neutral-500 uppercase tracking-widest mt-1">La Terraza del Mar � Cocina</p>
+            {/* Pin del restaurante (fijo, lado izquierdo) */}
+            <div className="absolute bottom-10 left-[18%] flex flex-col items-center pointer-events-none">
+              <div className="text-2xl drop-shadow-lg">🏠</div>
             </div>
-            <div className="p-5 flex flex-col gap-4">
-              {pedido.items.map((item) => (
-                <div key={item.productoId} className="flex gap-3">
-                  <div className="w-14 h-14 rounded-lg bg-neutral-800 flex items-center justify-center flex-shrink-0">
-                    <span className="material-symbols-outlined text-neutral-600">restaurant</span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <p className="font-semibold text-on-surface text-sm leading-tight">{item.nombre}</p>
-                      <p className="text-sm text-neutral-400 ml-2">x{item.cantidad}</p>
-                    </div>
-                    <p className="text-xs font-bold text-primary-container mt-1">
-                      ${(item.precio * item.cantidad).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              ))}
 
-              <div className="border-t border-neutral-800 pt-3 space-y-2">
-                <div className="flex justify-between text-sm text-neutral-400">
-                  <span>Subtotal</span>
-                  <span>${pedido.total?.toFixed(2) || '0.00'}</span>
-                </div>
-                <div className="flex justify-between text-sm text-neutral-400">
-                  <span>Env�o</span>
-                  <span className="text-tertiary">Gratis</span>
-                </div>
-                <div className="flex justify-between items-center pt-1">
-                  <span className="font-bold text-on-surface">Total</span>
-                  <span className="font-bold text-primary-container text-lg">${pedido.total?.toFixed(2) || '0.00'}</span>
+            {/* Moto del repartidor — se mueve según el estado */}
+            {!entregado && (
+              <div
+                className="absolute bottom-12 pointer-events-none transition-all duration-[1800ms] ease-in-out"
+                style={{
+                  left: estadoIdx === 0 ? '22%'
+                      : estadoIdx === 1 ? '30%'
+                      : '62%',
+                }}
+              >
+                <div className="flex flex-col items-center">
+                  {/* Sombra de movimiento */}
+                  <div className={`text-3xl drop-shadow-xl ${estadoIdx >= 2 ? 'animate-bounce' : 'animate-pulse'}`}>
+                    🛵
+                  </div>
+                  {estadoIdx >= 2 && (
+                    <span className="mt-1 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap">
+                      En camino
+                    </span>
+                  )}
                 </div>
               </div>
+            )}
 
-              {pedido.direccion && (
-                <div className="bg-neutral-900 rounded-lg p-3 border border-neutral-800">
-                  <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold mb-1">Entrega en</p>
-                  <p className="text-sm text-on-surface">{pedido.direccion}</p>
-                  {pedido.referencia && <p className="text-xs text-neutral-400 mt-0.5">{pedido.referencia}</p>}
+            {/* Pin del destino (fijo, lado derecho) */}
+            <div className="absolute bottom-10 right-[18%] flex flex-col items-center pointer-events-none">
+              <div className="text-2xl drop-shadow-lg">📍</div>
+            </div>
+
+            {/* Overlay cuando está entregado */}
+            {entregado && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
+                <div className="bg-green-500 text-white px-5 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-xl text-sm">
+                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  ¡Pedido entregado!
                 </div>
-              )}
-
-              <div className="flex flex-col gap-2 mt-1">
-                <button className="w-full bg-primary-container text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                  <span className="material-symbols-outlined">support_agent</span>
-                  Contactar Soporte
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/')}
-                  className="w-full border border-neutral-700 text-on-surface font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors"
-                >
-                  <span className="material-symbols-outlined">restaurant_menu</span>
-                  Nuevo Pedido
-                </button>
               </div>
+            )}
+          </div>
+        </section>
+
+        {/* Detalle del pedido */}
+        <section className="bg-surface-container rounded-2xl border border-neutral-800 overflow-hidden">
+          <div className="px-5 py-4 bg-surface-container-high border-b border-neutral-800 flex items-center gap-3">
+            <span className="material-symbols-outlined text-orange-500">receipt_long</span>
+            <div>
+              <p className="font-bold text-sm text-on-surface">Detalle del pedido</p>
+              <p className="text-xs text-neutral-500">La Terraza del Mar</p>
             </div>
           </div>
+          <div className="p-5 flex flex-col gap-3">
+            {pedido.detalle?.map(item => (
+              <div key={item.productoId} className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center flex-shrink-0">
+                    <span className="material-symbols-outlined text-neutral-600 text-sm">restaurant</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-on-surface text-sm">{item.nombre}</p>
+                    <p className="text-xs text-neutral-500">x{item.cantidad}</p>
+                  </div>
+                </div>
+                <p className="text-sm font-bold text-orange-500">${(item.precio * item.cantidad).toFixed(2)}</p>
+              </div>
+            ))}
 
-          <div className="bg-gradient-to-br from-orange-600 to-orange-900 rounded-xl p-6 relative overflow-hidden">
-            <div className="relative z-10">
-              <h3 className="text-headline-sm text-white">Comparte y Gana</h3>
-              <p className="text-white/80 text-sm mt-1">Invita amigos a La Terraza del Mar y obt�n $10 de descuento en tu pr�ximo pedido.</p>
-              <button className="mt-4 bg-white text-orange-700 font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-widest hover:bg-neutral-100 transition-colors">
-                Invitar Ahora
+            <div className="border-t border-neutral-800 pt-3 space-y-1">
+              <div className="flex justify-between text-sm text-neutral-400">
+                <span>Subtotal</span>
+                <span>${pedido.total?.toFixed(2) || '0.00'}</span>
+              </div>
+              <div className="flex justify-between text-sm text-neutral-400">
+                <span>Envío</span>
+                <span className="text-green-400 font-semibold">Gratis</span>
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                <span className="font-bold text-on-surface">Total</span>
+                <span className="font-bold text-orange-500 text-lg">${pedido.total?.toFixed(2) || '0.00'}</span>
+              </div>
+            </div>
+
+            {pedido.direccion && (
+              <div className="bg-neutral-900 rounded-lg p-3 border border-neutral-800 mt-1">
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold mb-1">Entrega en</p>
+                <p className="text-sm text-on-surface">{pedido.direccion}</p>
+                {pedido.referencia && <p className="text-xs text-neutral-400 mt-0.5">{pedido.referencia}</p>}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 mt-2">
+              <button
+                onClick={() => navigate('/')}
+                className="w-full border border-neutral-700 text-on-surface font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors"
+              >
+                <span className="material-symbols-outlined">restaurant_menu</span>
+                Hacer otro pedido
               </button>
             </div>
-            <span className="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-white/10 rotate-12">redeem</span>
           </div>
-        </aside>
+        </section>
+
       </main>
 
       <BottomNav />
