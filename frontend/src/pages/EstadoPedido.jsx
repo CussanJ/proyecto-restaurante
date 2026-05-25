@@ -257,18 +257,33 @@ export default function EstadoPedido() {
             ))}
 
             <div className="border-t border-neutral-800 pt-3 space-y-1">
-              <div className="flex justify-between text-sm text-neutral-400">
-                <span>Subtotal</span>
-                <span>${pedido.total?.toFixed(2) || '0.00'}</span>
-              </div>
-              <div className="flex justify-between text-sm text-neutral-400">
-                <span>Envío</span>
-                <span className="text-green-400 font-semibold">Gratis</span>
-              </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="font-bold text-on-surface">Total</span>
-                <span className="font-bold text-orange-500 text-lg">${pedido.total?.toFixed(2) || '0.00'}</span>
-              </div>
+              {(() => {
+                const subtotal = pedido.detalle?.reduce((sum, i) => sum + (i.precio * i.cantidad), 0) || 0;
+                const propina = pedido.propina ?? (pedido.total > subtotal + 0.01 ? pedido.total - subtotal : 0);
+                const porcentajePropina = subtotal > 0 ? Math.round((propina / subtotal) * 100) : 0;
+                return (
+                  <>
+                    <div className="flex justify-between text-sm text-neutral-400">
+                      <span>Subtotal</span>
+                      <span>${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-neutral-400">
+                      <span>Envío</span>
+                      <span className="text-green-400 font-semibold">Gratis</span>
+                    </div>
+                    {propina > 0 && (
+                      <div className="flex justify-between text-sm text-neutral-400">
+                        <span>Propina ({porcentajePropina}%)</span>
+                        <span>${propina.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="font-bold text-on-surface">Total</span>
+                      <span className="font-bold text-orange-500 text-lg">${pedido.total?.toFixed(2) || '0.00'}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             {pedido.direccion && (
