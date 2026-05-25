@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 app.use('/inventario', inventarioRoutes);
 
-mongoose.connect('mongodb://127.0.0.1:27017/inventario_db')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/inventario_db')
     .then(() => console.log('MongoDB inventario conectado'))
     .catch(err => console.log(err));
 

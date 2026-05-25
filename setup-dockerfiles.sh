@@ -43,23 +43,32 @@ do
   DOCKERIGNORE_PATH="$SERVICE_PATH/.dockerignore"
 
   cat > "$DOCKERFILE_PATH" <<EOF
-FROM node:20-alpine
+FROM node:24-alpine
 
+# Init process para manejo correcto de señales
 RUN apk add --no-cache tini
 
 WORKDIR /app
 
+# Copiamos dependencias primero para aprovechar cache
 COPY package*.json ./
 
-RUN npm ci && \\
-    npm cache clean --force
+# Instalación limpia
+RUN npm ci
 
+# Copiamos el resto del proyecto
 COPY . .
 
+# Variables para entorno de desarrollo
 ENV NODE_ENV=development
 ENV CHOKIDAR_USEPOLLING=true
 
-EXPOSE $PORT
+# evita problemas de permisos en algunos entornos
+RUN chown -R node:node /app
+
+USER node
+
+EXPOSE 3000
 
 ENTRYPOINT ["/sbin/tini", "--"]
 

@@ -11,7 +11,7 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/productos', productoRoutes);
 
-mongoose.connect('mongodb://127.0.0.1:27017/productos_db')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/productos_db')
     .then(() => console.log('MongoDB conectado'))
     .catch(err => console.log(err));
 
