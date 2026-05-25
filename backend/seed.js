@@ -83,7 +83,7 @@ async function seed() {
   console.log(`✅ ${insertados.length} productos insertados`);
 
   await mongoose.disconnect();
-  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/inventario_db');
+  await mongoose.connect(process.env.MONGODB_URI_INVENTARIO || 'mongodb://127.0.0.1:27017/inventario_db');
 
   const Inventario = mongoose.model('Inventario', new mongoose.Schema({
     productoId: String,
