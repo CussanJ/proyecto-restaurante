@@ -28,7 +28,7 @@ const productos = [
 ];
 
 async function seed() {
-  await mongoose.connect('mongodb://127.0.0.1:27017/productos_db');
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/productos_db');
   console.log('✅ Conectado a MongoDB');
 
   await Producto.deleteMany({});

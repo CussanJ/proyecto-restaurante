@@ -110,17 +110,13 @@ services:
     ports:
       - "3004:3004"
 
+    env_file:
+      - ./backend/auth-service/.env
+
     environment:
       PORT: 3004
-
-      MONGODB_URI: mongodb://mongodb:27017/auth_db
-
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_PASS: ${EMAIL_PASS}
-
+      MONGODB_URI: mongodb://mongodb:27017/inventario_db
       FRONTEND_URL: http://localhost:5173
-
-      JWT_SECRET: ${JWT_SECRET}
 
     volumes:
       - ./backend/auth-service:/app
@@ -162,7 +158,7 @@ services:
     restart: unless-stopped
 
     ports:
-      - "8030:8030"
+      - "8030:8080"
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
