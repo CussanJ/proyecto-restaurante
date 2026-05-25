@@ -17,22 +17,17 @@ export default function Header() {
         onClick={() => navigate('/')}
       />
       <div className="flex items-center gap-2">
-        <button className="text-neutral-400 hover:bg-neutral-900 p-2 rounded-full transition-colors">
-          <span className="material-symbols-outlined">notifications</span>
+        <button
+          className="relative text-neutral-400 hover:bg-neutral-900 p-2 rounded-full transition-colors"
+          onClick={() => navigate('/carrito')}
+        >
+          <span className="material-symbols-outlined">shopping_cart</span>
+          {totalItems > 0 && (
+            <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+              {totalItems}
+            </span>
+          )}
         </button>
-        {!admin && (
-          <button
-            className="relative text-neutral-400 hover:bg-neutral-900 p-2 rounded-full transition-colors"
-            onClick={() => navigate('/carrito')}
-          >
-            <span className="material-symbols-outlined">shopping_cart</span>
-            {totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                {totalItems}
-              </span>
-            )}
-          </button>
-        )}
       </div>
     </header>
   );

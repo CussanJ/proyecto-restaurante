@@ -223,12 +223,6 @@ const agregarStock = async (item) => {
                 onChange={e => setFiltro(e.target.value)}
               />
             </div>
-            <button className="p-2 text-neutral-400 hover:bg-neutral-900 rounded-full transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
-            <button className="p-2 text-neutral-400 hover:bg-neutral-900 rounded-full transition-colors">
-              <span className="material-symbols-outlined">account_circle</span>
-            </button>
           </div>
         </header>
 
