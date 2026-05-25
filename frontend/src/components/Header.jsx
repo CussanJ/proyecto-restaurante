@@ -15,9 +15,6 @@ export default function Header() {
         La Terraza del Mar
       </span>
       <div className="flex items-center gap-2">
-        <button className="text-neutral-400 hover:bg-neutral-900 p-2 rounded-full transition-colors">
-          <span className="material-symbols-outlined">notifications</span>
-        </button>
         <button
           className="relative text-neutral-400 hover:bg-neutral-900 p-2 rounded-full transition-colors"
           onClick={() => navigate('/carrito')}
