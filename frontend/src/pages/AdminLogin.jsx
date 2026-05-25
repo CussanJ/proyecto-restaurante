@@ -37,7 +37,7 @@ export default function AdminLogin() {
     >
       {/* Barra superior */}
       <div className="absolute top-0 left-0 w-full p-lg flex items-center justify-between pointer-events-none">
-        <span className="font-black tracking-tight text-2xl text-primary-container">La Terraza del Mar</span>
+        <img src="/logo.png" alt="La Terraza del Mar" className="h-14 w-auto object-contain" />
         <div className="hidden md:flex items-center gap-sm text-label-md uppercase text-outline">
           <span className="material-symbols-outlined text-sm">security</span>
           <span>Portal de Administración Seguro</span>
@@ -50,11 +50,12 @@ export default function AdminLogin() {
 
           {/* Encabezado */}
           <div className="mb-xl text-center">
-            <div
-              className="inline-flex items-center justify-center w-16 h-16 rounded-full border border-primary-container/20 mb-md"
-              style={{ backgroundColor: 'rgba(242,122,24,0.1)' }}
-            >
-              <span className="material-symbols-outlined text-primary-container" style={{ fontSize: '36px' }}>restaurant</span>
+            <div className="flex justify-center mb-md">
+              <img
+                src="/logo.png"
+                alt="La Terraza del Mar"
+                className="h-40 w-auto object-contain"
+              />
             </div>
             <h1 className="text-headline-md text-on-surface mb-xs">Bienvenido de nuevo</h1>
             <p className="text-body-md text-on-surface-variant">Inicie sesión para gestionar el restaurante</p>
