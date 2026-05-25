@@ -49,7 +49,7 @@ const subirImagen = [
     upload.single('imagen'),
     (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
-        res.json({ url: `http://localhost:3001/uploads/${req.file.filename}` });
+        res.json({ url: `http://localhost:${process.env.PORT}/uploads/${req.file.filename}` });
     },
 ];
 

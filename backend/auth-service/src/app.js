@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 app.use('/auth', authRoutes);
 
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/inventario_db')
   .then(() => console.log('MongoDB conectado — auth_db'))
   .catch(err => console.error('Error MongoDB:', err));
 

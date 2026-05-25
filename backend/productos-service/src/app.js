@@ -19,6 +19,8 @@ app.get('/', (req, res) => {
     res.send('Servicio productos funcionando');
 });
 
-app.listen(3001, () => {
-    console.log('Servidor en puerto 3001');
+const puerto = process.env.PORT || 3001;
+
+app.listen(puerto, () => {
+    console.log(`Servidor en puerto ${puerto}`);
 });

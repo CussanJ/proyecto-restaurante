@@ -17,6 +17,6 @@ app.get('/', (req, res) => {
     res.send('Servicio pedidos funcionando');
 });
 
-app.listen(3003, () => {
+app.listen(process.env.PORT || 3003, () => {
     console.log('Servidor pedidos en puerto 3003');
 });

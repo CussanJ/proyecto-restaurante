@@ -17,6 +17,6 @@ app.get('/', (req, res) => {
     res.send('Servicio inventario funcionando');
 });
 
-app.listen(3002, () => {
+app.listen(process.env.PORT || 3002, () => {
     console.log('Servidor inventario en puerto 3002');
 });

@@ -37,7 +37,7 @@ async function seed() {
 
   // Conectar inventario_db y sembrar stock
   await mongoose.disconnect();
-  await mongoose.connect('mongodb://127.0.0.1:27017/inventario_db');
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/inventario_db');
 
   const InventarioModel = mongoose.model('Inventario', new mongoose.Schema({
     productoId: String,
