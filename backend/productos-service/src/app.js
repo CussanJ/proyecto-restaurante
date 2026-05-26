@@ -11,7 +11,7 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/productos', productoRoutes);
 
-mongoose.connect('mongodb://127.0.0.1:27017/productos_db')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/productos_db')
     .then(() => console.log('MongoDB conectado'))
     .catch(err => console.log(err));
 
@@ -19,6 +19,8 @@ app.get('/', (req, res) => {
     res.send('Servicio productos funcionando');
 });
 
-app.listen(3001, () => {
-    console.log('Servidor en puerto 3001');
+const puerto = process.env.PORT || 3001;
+
+app.listen(puerto, () => {
+    console.log(`Servidor en puerto ${puerto}`);
 });

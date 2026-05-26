@@ -2,8 +2,8 @@ const Pedido = require('../models/Pedido');
 const { ESTADOS_VALIDOS } = require('../models/Pedido');
 const axios = require('axios');
 
-const PRODUCTOS_URL = 'http://localhost:3001/productos';
-const INVENTARIO_URL = 'http://localhost:3002/inventario';
+const PRODUCTOS_URL = process.env.PRODUCTOS_URL || 'http://localhost:3001/productos';
+const INVENTARIO_URL = process.env.INVENTARIO_URL || 'http://localhost:3002/inventario';
 
 const crearPedido = async (req, res) => {
     try {

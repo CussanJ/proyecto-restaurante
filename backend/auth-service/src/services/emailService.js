@@ -17,8 +17,10 @@ transporter.verify((error) => {
   }
 });
 
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
 const enviarEmailRecuperacion = async (destinatario, token) => {
-  const resetUrl = `${process.env.FRONTEND_URL}/admin/reset-password/${token}`;
+  const resetUrl = `${FRONTEND_URL}/admin/reset-password/${token}`;
 
   await transporter.sendMail({
     from: `"La Terraza del Mar" <${process.env.EMAIL_USER}>`,
