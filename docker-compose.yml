@@ -22,7 +22,6 @@ services:
       context: ./backend/productos-service
 
     container_name: productos-service
-
     restart: unless-stopped
 
     ports:
@@ -48,7 +47,6 @@ services:
       context: ./backend/inventario-service
 
     container_name: inventario-service
-
     restart: unless-stopped
 
     ports:
@@ -71,7 +69,6 @@ services:
       context: ./backend/pedidos-service
 
     container_name: pedidos-service
-
     restart: unless-stopped
 
     ports:
@@ -79,9 +76,7 @@ services:
 
     environment:
       PORT: 3003
-
       MONGODB_URI: mongodb://mongodb:27017/pedidos_db
-
       PRODUCTOS_URL: http://productos-service:3001/productos
       INVENTARIO_URL: http://inventario-service:3002/inventario
 
@@ -92,10 +87,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
-
       productos-service:
         condition: service_started
-
       inventario-service:
         condition: service_started
 
@@ -104,7 +97,6 @@ services:
       context: ./backend/auth-service
 
     container_name: auth-service
-
     restart: unless-stopped
 
     ports:
@@ -115,7 +107,7 @@ services:
 
     environment:
       PORT: 3004
-      MONGODB_URI: mongodb://mongodb:27017/inventario_db
+      MONGODB_URI: mongodb://mongodb:27017/auth_db
       FRONTEND_URL: http://localhost:5173
 
     volumes:
@@ -131,7 +123,6 @@ services:
       context: ./frontend
 
     container_name: frontend
-
     restart: unless-stopped
 
     ports:
@@ -154,7 +145,6 @@ services:
     image: amir20/dozzle:latest
 
     container_name: dozzle
-
     restart: unless-stopped
 
     ports:
