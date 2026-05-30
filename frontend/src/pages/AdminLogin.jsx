@@ -1,19 +1,46 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [recordar, setRecordar] = useState(false);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const emailError = (emailTouched || submitted) && (
+    !email
+      ? 'El correo electrónico es requerido.'
+      : !emailValido
+      ? 'El formato del correo es inválido.'
+      : null
+  );
+
+  const passwordError = (passwordTouched || submitted) && (
+    !password
+      ? 'La contraseña es requerida.'
+      : password.length < 6
+      ? 'La contraseña debe tener al menos 6 caracteres.'
+      : null
+  );
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitted(true);
     setError('');
+
+    if (!email || !emailValido || password.length < 6) {
+      setError('Por favor, corrige los errores en el formulario.');
+      return;
+    }
+
     setCargando(true);
     try {
       await login(email, password);
@@ -84,11 +111,17 @@ export default function AdminLogin() {
                   type="email"
                   placeholder="admin@laterrazadelmar.com"
                   value={email}
+                  onBlur={() => setEmailTouched(true)}
                   onChange={e => setEmail(e.target.value)}
                   required
-                  className="w-full bg-surface-container-highest border border-surface-container-highest focus:border-primary-container text-on-surface rounded-lg pl-10 pr-md py-md outline-none text-body-md transition-all"
+                  className={`w-full bg-surface-container-highest border focus:border-primary-container text-on-surface rounded-lg pl-10 pr-md py-md outline-none text-body-md transition-all ${
+                    emailError ? 'border-error' : 'border-surface-container-highest'
+                  }`}
                 />
               </div>
+              {emailError && (
+                <p className="text-error text-[11px] pl-xs mt-1">{emailError}</p>
+              )}
             </div>
 
             {/* Contraseña */}
@@ -113,11 +146,17 @@ export default function AdminLogin() {
                   type="password"
                   placeholder="••••••••"
                   value={password}
+                  onBlur={() => setPasswordTouched(true)}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  className="w-full bg-surface-container-highest border border-surface-container-highest focus:border-primary-container text-on-surface rounded-lg pl-10 pr-md py-md outline-none text-body-md transition-all"
+                  className={`w-full bg-surface-container-highest border focus:border-primary-container text-on-surface rounded-lg pl-10 pr-md py-md outline-none text-body-md transition-all ${
+                    passwordError ? 'border-error' : 'border-surface-container-highest'
+                  }`}
                 />
               </div>
+              {passwordError && (
+                <p className="text-error text-[11px] pl-xs mt-1">{passwordError}</p>
+              )}
             </div>
 
             {/* Recordar */}

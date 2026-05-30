@@ -11,20 +11,71 @@ export default function AdminRegistro() {
   const [mostrarPass, setMostrarPass] = useState(false);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
+
+  // Estados de toque y envío
+  const [nombreTouched, setNombreTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmarTouched, setConfirmarTouched] = useState(false);
+  const [terminosTouched, setTerminosTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
   const { registro } = useAuth();
   const navigate = useNavigate();
 
+  // Validaciones en tiempo real
+  const nombreValido = nombre.trim().length >= 5;
+  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const passwordValido = password.length >= 6;
+  const confirmarValido = confirmar === password;
+
+  const nombreError = (nombreTouched || submitted) && (
+    !nombre.trim()
+      ? 'El nombre completo es requerido.'
+      : !nombreValido
+      ? 'El nombre debe tener al menos 5 caracteres.'
+      : null
+  );
+
+  const emailError = (emailTouched || submitted) && (
+    !email
+      ? 'El correo electrónico es requerido.'
+      : !emailValido
+      ? 'El formato del correo es inválido.'
+      : null
+  );
+
+  const passwordError = (passwordTouched || submitted) && (
+    !password
+      ? 'La contraseña es requerida.'
+      : !passwordValido
+      ? 'La contraseña debe tener al menos 6 caracteres.'
+      : null
+  );
+
+  const confirmarError = (confirmarTouched || submitted) && (
+    !confirmar
+      ? 'Por favor confirma tu contraseña.'
+      : !confirmarValido
+      ? 'Las contraseñas no coinciden.'
+      : null
+  );
+
+  const terminosError = (terminosTouched || submitted) && !terminos && 'Debes aceptar los términos de servicio.';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitted(true);
     setError('');
 
-    if (password !== confirmar) { setError('Las contraseñas no coinciden.'); return; }
-    if (password.length < 6)   { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
-    if (!terminos)              { setError('Debes aceptar los términos de servicio.'); return; }
+    if (!nombreValido || !emailValido || !passwordValido || !confirmarValido || !terminos) {
+      setError('Por favor, corrige los errores en el formulario.');
+      return;
+    }
 
     setCargando(true);
     try {
-      await registro(nombre, email, password);
+      await registro(nombre.trim(), email, password);
       navigate('/admin/cocina');
     } catch (err) {
       setError(err.response?.data?.error || 'Error al crear la cuenta. Intenta de nuevo.');
@@ -110,11 +161,17 @@ export default function AdminRegistro() {
                   type="text"
                   placeholder="Ej. Chef Rodrigo Alarcón"
                   value={nombre}
+                  onBlur={() => setNombreTouched(true)}
                   onChange={e => setNombre(e.target.value)}
                   required
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-3 pl-11 pr-md text-on-surface text-body-md placeholder:text-neutral-600 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all"
+                  className={`w-full bg-surface-container-low border rounded-lg py-3 pl-11 pr-md text-on-surface text-body-md placeholder:text-neutral-600 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all ${
+                    nombreError ? 'border-error' : 'border-outline-variant'
+                  }`}
                 />
               </div>
+              {nombreError && (
+                <p className="text-error text-[11px] pl-xs mt-1">{nombreError}</p>
+              )}
             </div>
 
             {/* Correo */}
@@ -131,11 +188,17 @@ export default function AdminRegistro() {
                   type="email"
                   placeholder="nombre@laterrazadelmar.com"
                   value={email}
+                  onBlur={() => setEmailTouched(true)}
                   onChange={e => setEmail(e.target.value)}
                   required
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-3 pl-11 pr-md text-on-surface text-body-md placeholder:text-neutral-600 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all"
+                  className={`w-full bg-surface-container-low border rounded-lg py-3 pl-11 pr-md text-on-surface text-body-md placeholder:text-neutral-600 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all ${
+                    emailError ? 'border-error' : 'border-outline-variant'
+                  }`}
                 />
               </div>
+              {emailError && (
+                <p className="text-error text-[11px] pl-xs mt-1">{emailError}</p>
+              )}
             </div>
 
             {/* Contraseña */}
@@ -152,9 +215,12 @@ export default function AdminRegistro() {
                   type={mostrarPass ? 'text' : 'password'}
                   placeholder="Mínimo 6 caracteres"
                   value={password}
+                  onBlur={() => setPasswordTouched(true)}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-3 pl-11 pr-12 text-on-surface text-body-md placeholder:text-neutral-600 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all"
+                  className={`w-full bg-surface-container-low border rounded-lg py-3 pl-11 pr-12 text-on-surface text-body-md placeholder:text-neutral-600 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all ${
+                    passwordError ? 'border-error' : 'border-outline-variant'
+                  }`}
                 />
                 <button
                   type="button"
@@ -166,6 +232,9 @@ export default function AdminRegistro() {
                   </span>
                 </button>
               </div>
+              {passwordError && (
+                <p className="text-error text-[11px] pl-xs mt-1">{passwordError}</p>
+              )}
             </div>
 
             {/* Confirmar contraseña */}
@@ -182,28 +251,40 @@ export default function AdminRegistro() {
                   type="password"
                   placeholder="Repite tu contraseña"
                   value={confirmar}
+                  onBlur={() => setConfirmarTouched(true)}
                   onChange={e => setConfirmar(e.target.value)}
                   required
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-3 pl-11 pr-md text-on-surface text-body-md placeholder:text-neutral-600 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all"
+                  className={`w-full bg-surface-container-low border rounded-lg py-3 pl-11 pr-md text-on-surface text-body-md placeholder:text-neutral-600 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all ${
+                    confirmarError ? 'border-error' : 'border-outline-variant'
+                  }`}
                 />
               </div>
+              {confirmarError && (
+                <p className="text-error text-[11px] pl-xs mt-1">{confirmarError}</p>
+              )}
             </div>
 
             {/* Términos */}
-            <div className="flex items-start gap-sm">
-              <input
-                id="terminos"
-                type="checkbox"
-                checked={terminos}
-                onChange={e => setTerminos(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-outline-variant bg-surface-container-low accent-[#f27a18]"
-              />
-              <label htmlFor="terminos" className="text-body-md text-on-surface-variant cursor-pointer">
-                Acepto los{' '}
-                <a href="#" className="text-primary-container hover:underline">Términos de Servicio</a>
-                {' '}y la{' '}
-                <a href="#" className="text-primary-container hover:underline">Política de Privacidad</a>.
-              </label>
+            <div className="space-y-xs">
+              <div className="flex items-start gap-sm">
+                <input
+                  id="terminos"
+                  type="checkbox"
+                  checked={terminos}
+                  onBlur={() => setTerminosTouched(true)}
+                  onChange={e => setTerminos(e.target.checked)}
+                  className="mt-1 w-4 h-4 rounded border-outline-variant bg-surface-container-low accent-[#f27a18]"
+                />
+                <label htmlFor="terminos" className="text-body-md text-on-surface-variant cursor-pointer">
+                  Acepto los{' '}
+                  <a href="#" className="text-primary-container hover:underline">Términos de Servicio</a>
+                  {' '}y la{' '}
+                  <a href="#" className="text-primary-container hover:underline">Política de Privacidad</a>.
+                </label>
+              </div>
+              {terminosError && (
+                <p className="text-error text-[11px] pl-xs mt-1">{terminosError}</p>
+              )}
             </div>
 
             <button

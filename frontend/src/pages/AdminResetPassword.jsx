@@ -10,15 +10,43 @@ export default function AdminResetPassword() {
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
   const [cargando, setCargando] = useState(false);
+
+  // Estados de toque y envío
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmarTouched, setConfirmarTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
   const { resetPassword } = useAuth();
   const navigate = useNavigate();
 
+  const passwordValido = password.length >= 6;
+  const confirmarValido = confirmar === password;
+
+  const passwordError = (passwordTouched || submitted) && (
+    !password
+      ? 'La contraseña es requerida.'
+      : !passwordValido
+      ? 'La contraseña debe tener al menos 6 caracteres.'
+      : null
+  );
+
+  const confirmarError = (confirmarTouched || submitted) && (
+    !confirmar
+      ? 'Por favor confirma tu contraseña.'
+      : !confirmarValido
+      ? 'Las contraseñas no coinciden.'
+      : null
+  );
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitted(true);
     setError('');
 
-    if (password !== confirmar) { setError('Las contraseñas no coinciden.'); return; }
-    if (password.length < 6)   { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (!passwordValido || !confirmarValido) {
+      setError('Por favor, corrige los errores en el formulario.');
+      return;
+    }
 
     setCargando(true);
     try {
@@ -77,7 +105,7 @@ export default function AdminResetPassword() {
               )}
 
               <form className="space-y-lg" onSubmit={handleSubmit}>
-                {/* Nueva contraseña */}
+                 {/* Nueva contraseña */}
                 <div className="space-y-xs">
                   <label className="text-label-md text-on-surface-variant block ml-1" htmlFor="password">
                     Nueva contraseña
@@ -91,9 +119,12 @@ export default function AdminResetPassword() {
                       type={mostrarPass ? 'text' : 'password'}
                       placeholder="Mínimo 6 caracteres"
                       value={password}
+                      onBlur={() => setPasswordTouched(true)}
                       onChange={e => setPassword(e.target.value)}
                       required
-                      className="w-full bg-[#1E1E1E] border border-[#2D2D2D] text-on-surface rounded-lg py-3 pl-11 pr-12 focus:ring-1 focus:ring-primary-container focus:border-primary-container outline-none text-body-md transition-all"
+                      className={`w-full bg-[#1E1E1E] border text-on-surface rounded-lg py-3 pl-11 pr-12 focus:ring-1 focus:ring-primary-container focus:border-primary-container outline-none text-body-md transition-all ${
+                        passwordError ? 'border-error' : 'border-[#2D2D2D]'
+                      }`}
                     />
                     <button
                       type="button"
@@ -105,6 +136,9 @@ export default function AdminResetPassword() {
                       </span>
                     </button>
                   </div>
+                  {passwordError && (
+                    <p className="text-error text-[11px] pl-xs mt-1">{passwordError}</p>
+                  )}
                 </div>
 
                 {/* Confirmar contraseña */}
@@ -121,11 +155,17 @@ export default function AdminResetPassword() {
                       type="password"
                       placeholder="Repite tu contraseña"
                       value={confirmar}
+                      onBlur={() => setConfirmarTouched(true)}
                       onChange={e => setConfirmar(e.target.value)}
                       required
-                      className="w-full bg-[#1E1E1E] border border-[#2D2D2D] text-on-surface rounded-lg py-3 pl-11 pr-md focus:ring-1 focus:ring-primary-container focus:border-primary-container outline-none text-body-md transition-all"
+                      className={`w-full bg-[#1E1E1E] border text-on-surface rounded-lg py-3 pl-11 pr-md focus:ring-1 focus:ring-primary-container focus:border-primary-container outline-none text-body-md transition-all ${
+                        confirmarError ? 'border-error' : 'border-[#2D2D2D]'
+                      }`}
                     />
                   </div>
+                  {confirmarError && (
+                    <p className="text-error text-[11px] pl-xs mt-1">{confirmarError}</p>
+                  )}
                 </div>
 
                 <button

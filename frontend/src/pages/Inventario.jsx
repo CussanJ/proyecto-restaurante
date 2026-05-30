@@ -30,6 +30,30 @@ export default function Inventario() {
   const [error, setError] = useState('');
   const fileRef = useRef();
 
+  // Estados de toque y envío para validación de modal
+  const [nombreTouched, setNombreTouched] = useState(false);
+  const [precioTouched, setPrecioTouched] = useState(false);
+  const [stockInicialTouched, setStockInicialTouched] = useState(false);
+  const [imagenTouched, setImagenTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Validaciones en tiempo real
+  const nombreValido = form.nombre.trim().length > 5;
+  const precioValido = form.precio !== '' && Number(form.precio) > 0;
+  const stockInicialValido = form.stockInicial === '' || (Number(form.stockInicial) >= 0 && Number.isInteger(Number(form.stockInicial)));
+  const imagenValida = !form.imagen.trim() || /^https?:\/\/.+/i.test(form.imagen.trim());
+
+  const nombreError = (nombreTouched || submitted) && !nombreValido && 'El nombre del producto es obligatorio.';
+  const precioError = (precioTouched || submitted) && (
+    form.precio === ''
+      ? 'El precio es obligatorio.'
+      : !precioValido
+      ? 'El precio debe ser un número mayor a 0.'
+      : null
+  );
+  const stockInicialError = (stockInicialTouched || submitted) && !stockInicialValido && 'El stock inicial debe ser un número entero no negativo.';
+  const imagenError = (imagenTouched || submitted) && !imagenValida && 'La URL de la imagen debe ser válida (empezar con http:// o https://).';
+
   const cargarDatos = () => {
     setCargando(true);
     Promise.all([inventarioApi.get('/inventario'), productosApi.get('/productos')])
@@ -110,8 +134,9 @@ const agregarStock = async (item) => {
   };
 
   const handleGuardar = async () => {
-    if (!form.nombre.trim() || !form.precio) {
-      setError('El nombre y el precio son obligatorios.');
+    setSubmitted(true);
+    if (!nombreValido || !precioValido || !stockInicialValido || !imagenValida) {
+      setError('Por favor, corrige los errores en el formulario.');
       return;
     }
     setError('');
@@ -154,6 +179,12 @@ const agregarStock = async (item) => {
   };
 
   const abrirModal = (item = null) => {
+    setNombreTouched(false);
+    setPrecioTouched(false);
+    setStockInicialTouched(false);
+    setImagenTouched(false);
+    setSubmitted(false);
+
     if (item && item.productoId) {
       const prod = productos.find(p => p._id === item.productoId);
       if (prod) {
@@ -388,11 +419,17 @@ const agregarStock = async (item) => {
               <div>
                 <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Nombre *</label>
                 <input
-                  className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors"
+                  className={`mt-1 w-full bg-neutral-800 border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors ${
+                    nombreError ? 'border-red-500' : 'border-neutral-700'
+                  }`}
                   placeholder="Ej. Burger BBQ"
                   value={form.nombre}
+                  onBlur={() => setNombreTouched(true)}
                   onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
                 />
+                {nombreError && (
+                  <p className="text-red-400 text-xs mt-1 pl-1">{nombreError}</p>
+                )}
               </div>
 
               {/* Precio y Categoría */}
@@ -403,11 +440,17 @@ const agregarStock = async (item) => {
                     type="number"
                     min="0"
                     step="0.01"
-                    className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors"
+                    className={`mt-1 w-full bg-neutral-800 border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors ${
+                      precioError ? 'border-red-500' : 'border-neutral-700'
+                    }`}
                     placeholder="0.00"
                     value={form.precio}
+                    onBlur={() => setPrecioTouched(true)}
                     onChange={e => setForm(f => ({ ...f, precio: e.target.value }))}
                   />
+                  {precioError && (
+                    <p className="text-red-400 text-xs mt-1 pl-1">{precioError}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Categoría</label>
@@ -440,11 +483,17 @@ const agregarStock = async (item) => {
                   type="number"
                   min="0"
                   disabled={!!form._id}
-                  className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors"
+                  className={`mt-1 w-full bg-neutral-800 border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors ${
+                    stockInicialError ? 'border-red-500' : 'border-neutral-700'
+                  }`}
                   placeholder="10"
                   value={form.stockInicial}
+                  onBlur={() => setStockInicialTouched(true)}
                   onChange={e => setForm(f => ({ ...f, stockInicial: e.target.value }))}
                 />
+                {stockInicialError && (
+                  <p className="text-red-400 text-xs mt-1 pl-1">{stockInicialError}</p>
+                )}
               </div>
 
               {/* Disponible */}
@@ -478,12 +527,20 @@ const agregarStock = async (item) => {
                 </div>
 
                 {tabImagen === 'url' ? (
-                  <input
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors"
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                    value={form.imagen}
-                    onChange={handleUrlChange}
-                  />
+                  <div>
+                    <input
+                      className={`w-full bg-neutral-800 border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors ${
+                        imagenError ? 'border-red-500' : 'border-neutral-700'
+                      }`}
+                      placeholder="https://ejemplo.com/imagen.jpg"
+                      value={form.imagen}
+                      onBlur={() => setImagenTouched(true)}
+                      onChange={handleUrlChange}
+                    />
+                    {imagenError && (
+                      <p className="text-red-400 text-xs mt-1 pl-1">{imagenError}</p>
+                    )}
+                  </div>
                 ) : (
                   <div>
                     <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />

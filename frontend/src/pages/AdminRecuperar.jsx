@@ -7,11 +7,32 @@ export default function AdminRecuperar() {
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
+
+  // Estados de toque y envío
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
   const { recuperar } = useAuth();
+
+  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const emailError = (emailTouched || submitted) && (
+    !email
+      ? 'El correo electrónico es requerido.'
+      : !emailValido
+      ? 'El formato del correo es inválido.'
+      : null
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitted(true);
     setError('');
+
+    if (!email || !emailValido) {
+      setError('Por favor, introduce un correo electrónico válido.');
+      return;
+    }
+
     setCargando(true);
     try {
       await recuperar(email);
@@ -74,14 +95,20 @@ export default function AdminRecuperar() {
                       type="email"
                       placeholder="ejemplo@laterrazadelmar.com"
                       value={email}
+                      onBlur={() => setEmailTouched(true)}
                       onChange={e => setEmail(e.target.value)}
                       required
-                      className="w-full bg-[#1E1E1E] border border-[#2D2D2D] text-on-surface rounded-lg px-md py-3 pr-12 focus:ring-1 focus:ring-primary-container focus:border-primary-container outline-none text-body-md transition-all"
+                      className={`w-full bg-[#1E1E1E] border text-on-surface rounded-lg px-md py-3 pr-12 focus:ring-1 focus:ring-primary-container focus:border-primary-container outline-none text-body-md transition-all ${
+                        emailError ? 'border-error' : 'border-[#2D2D2D]'
+                      }`}
                     />
                     <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary-container transition-colors">
                       mail
                     </span>
                   </div>
+                  {emailError && (
+                    <p className="text-error text-[11px] pl-xs mt-1">{emailError}</p>
+                  )}
                 </div>
 
                 <button
