@@ -1,19 +1,23 @@
 import axios from 'axios';
 
-// Al no poner http:// ni puertos, el navegador usa automáticamente 
-// el mismo protocolo (HTTP o HTTPS) y el mismo HOST desde el que cargó la página.
+const host = window.location.hostname;
+const protocol = window.location.protocol;
+
+// Ahora todo pasa centralizado a través del puerto de Nginx (245)
+const GATEWAY_URL = `${protocol}//${host}:245`;
+
 export const productosApi = axios.create({
-  baseURL: '/api/productos',
+  baseURL: `${GATEWAY_URL}/api/productos`,
 });
 
 export const pedidosApi = axios.create({
-  baseURL: '/api/pedidos',
+  baseURL: `${GATEWAY_URL}/api/pedidos`,
 });
 
 export const inventarioApi = axios.create({
-  baseURL: '/api/inventario',
+  baseURL: `${GATEWAY_URL}/api/inventario`,
 });
 
 export const authApi = axios.create({
-  baseURL: '/api/auth', // Asegúrate de agregar esta ruta en tu nginx.conf si usas auth
+  baseURL: `${GATEWAY_URL}/api/auth`,
 });
