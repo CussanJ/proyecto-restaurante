@@ -2,7 +2,7 @@ services:
 
   mongodb:
     image: mongo:8
-    container_name: mongodb
+    container_name: mongodb-e1b
     restart: unless-stopped
 
     ports:
@@ -21,7 +21,7 @@ services:
     build:
       context: ./backend/productos-service
 
-    container_name: productos-service
+    container_name: productos-service-e1b
     restart: unless-stopped
 
     ports:
@@ -46,7 +46,7 @@ services:
     build:
       context: ./backend/inventario-service
 
-    container_name: inventario-service
+    container_name: inventario-service-e1b
     restart: unless-stopped
 
     ports:
@@ -68,7 +68,7 @@ services:
     build:
       context: ./backend/pedidos-service
 
-    container_name: pedidos-service
+    container_name: pedidos-service-e1b
     restart: unless-stopped
 
     ports:
@@ -96,7 +96,7 @@ services:
     build:
       context: ./backend/auth-service
 
-    container_name: auth-service
+    container_name: auth-service-e1b
     restart: unless-stopped
 
     ports:
@@ -123,7 +123,7 @@ services:
     build:
       context: ./frontend
 
-    container_name: frontend
+    container_name: frontend-e1b
     restart: unless-stopped
 
     ports:
@@ -145,7 +145,7 @@ services:
   dozzle:
     image: amir20/dozzle:latest
 
-    container_name: dozzle
+    container_name: dozzle-e1b
     restart: unless-stopped
 
     ports:
