@@ -218,7 +218,7 @@ const agregarStock = async (item) => {
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">search</span>
               <input
                 className="bg-neutral-900 border border-neutral-800 rounded-lg py-1.5 pl-10 pr-4 text-sm focus:outline-none focus:border-orange-500 transition-colors w-64"
-                placeholder="Buscar ingrediente..."
+                placeholder="Buscar producto..."
                 value={filtro}
                 onChange={e => setFiltro(e.target.value)}
               />
@@ -270,8 +270,6 @@ const agregarStock = async (item) => {
                 NUEVO PRODUCTO
               </button>
               <button className="text-neutral-400 hover:text-on-surface text-sm flex items-center gap-1">
-                <span className="material-symbols-outlined">filter_list</span>
-                Filtros Avanzados
               </button>
             </div>
 
@@ -284,7 +282,7 @@ const agregarStock = async (item) => {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-neutral-950 text-neutral-500 text-xs font-bold uppercase tracking-wider">
-                      <th className="px-6 py-4">Ingrediente</th>
+                      <th className="px-6 py-4">Producto</th>
                       <th className="px-6 py-4">Stock Actual</th>
                       <th className="px-6 py-4">Estado</th>
                       <th className="px-6 py-4 text-right">Acciones</th>
