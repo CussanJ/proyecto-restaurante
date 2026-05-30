@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import cardValidator from 'card-validator';
 import { useCart } from '../context/CartContext';
 import { pedidosApi } from '../services/api';
 import Header from '../components/Header';
@@ -28,12 +29,39 @@ const calcularRangoEntrega = (minutos) => {
   return `${fmt(inicio)} – ${fmt(fin)}`;
 };
 
-const formatCard = (v) =>
-  v.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim();
+const formatCardNumber = (value) => {
+  const clean = value.replace(/\D/g, '');
+  const validation = cardValidator.number(clean);
+  const card = validation.card;
+  
+  if (!card) {
+    return clean.slice(0, 19).replace(/(.{4})/g, '$1 ').trim();
+  }
+  
+  const gaps = card.gaps || [4, 8, 12];
+  const maxLength = Math.max(...card.lengths) || 16;
+  const trimmed = clean.slice(0, maxLength);
+  
+  let formatted = '';
+  let lastIndex = 0;
+  for (const gap of gaps) {
+    if (trimmed.length > gap) {
+      formatted += trimmed.slice(lastIndex, gap) + ' ';
+      lastIndex = gap;
+    } else {
+      break;
+    }
+  }
+  formatted += trimmed.slice(lastIndex);
+  return formatted;
+};
 
 const formatExpiry = (v) => {
-  const d = v.replace(/\D/g, '').slice(0, 4);
-  return d.length >= 3 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+  const clean = v.replace(/\D/g, '').slice(0, 4);
+  if (clean.length > 2) {
+    return `${clean.slice(0, 2)}/${clean.slice(2)}`;
+  }
+  return clean;
 };
 
 const imagenPorNombre = (nombre) => {
@@ -85,6 +113,47 @@ export default function Carrito() {
   const [expiracion, setExpiracion] = useState('');
   const [cvv, setCvv] = useState('');
 
+  // Estados de toque y envío para validaciones en tiempo real
+  const [numTarjetaTouched, setNumTarjetaTouched] = useState(false);
+  const [nombreTarjetaTouched, setNombreTarjetaTouched] = useState(false);
+  const [expiracionTouched, setExpiracionTouched] = useState(false);
+  const [cvvTouched, setCvvTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Validaciones en tiempo real usando card-validator
+  const cardValidation = cardValidator.number(numTarjeta);
+  const expiryValidation = cardValidator.expirationDate(expiracion);
+  const cvvValidation = cardValidator.cvv(cvv, cardValidation.card?.code?.size || 3);
+
+  // Mensajes de error específicos en español
+  const errors = {
+    numTarjeta: !numTarjeta
+      ? 'El número de tarjeta es requerido.'
+      : !cardValidation.isValid
+      ? 'Número de tarjeta inválido.'
+      : null,
+    nombreTarjeta: !nombreTarjeta.trim()
+      ? 'El nombre del titular es requerido.'
+      : nombreTarjeta.trim().length < 5
+      ? 'El nombre debe tener al menos 5 caracteres.'
+      : null,
+    expiracion: !expiracion
+      ? 'La fecha de vencimiento es requerida.'
+      : !expiryValidation.isValid
+      ? 'Fecha de vencimiento inválida (MM/AA).'
+      : null,
+    cvv: !cvv
+      ? 'El CVV es requerido.'
+      : !cvvValidation.isValid
+      ? `El CVV debe ser de ${cardValidation.card?.code?.size || 3} dígitos.`
+      : null
+  };
+
+  const showCardNumberError = (numTarjetaTouched || submitted) && errors.numTarjeta;
+  const showNombreError = (nombreTarjetaTouched || submitted) && errors.nombreTarjeta;
+  const showExpiryError = (expiracionTouched || submitted) && errors.expiracion;
+  const showCvvError = (cvvTouched || submitted) && errors.cvv;
+
   // Propina
   const [propinaPct, setPropinaPct] = useState(10);
   const [propinaCustom, setPropinaCustom] = useState('');
@@ -129,10 +198,11 @@ export default function Carrito() {
 
   const validarPago = () => {
     if (metodoPago === 'tarjeta') {
-      if (numTarjeta.replace(/\s/g, '').length < 16) return 'Número de tarjeta incompleto.';
-      if (!nombreTarjeta.trim()) return 'Ingresa el nombre del titular.';
-      if (expiracion.length < 5) return 'Ingresa la fecha de vencimiento.';
-      if (cvv.length < 3) return 'CVV inválido.';
+      setSubmitted(true);
+      if (errors.numTarjeta) return errors.numTarjeta;
+      if (errors.nombreTarjeta) return errors.nombreTarjeta;
+      if (errors.expiracion) return errors.expiracion;
+      if (errors.cvv) return errors.cvv;
     }
     return null;
   };
@@ -181,13 +251,7 @@ export default function Carrito() {
     }
   };
 
-  const tipoTarjeta = () => {
-    const n = numTarjeta.replace(/\s/g, '');
-    if (n.startsWith('4')) return 'VISA';
-    if (n.startsWith('5')) return 'MC';
-    if (n.startsWith('3')) return 'AMEX';
-    return null;
-  };
+
 
   // ── Pantalla de éxito ──────────────────────────────────────────
   if (pedidoConfirmado) {
@@ -425,40 +489,75 @@ export default function Carrito() {
 
                 {metodoPago === 'tarjeta' && (
                   <div className="space-y-3">
-                    <div className="relative">
-                      <input
-                        type="text" inputMode="numeric" placeholder="1234 5678 9012 3456"
-                        value={numTarjeta}
-                        onChange={e => setNumTarjeta(formatCard(e.target.value))}
-                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600 pr-16"
-                      />
-                      {tipoTarjeta() && (
-                        <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black ${
-                          tipoTarjeta() === 'VISA' ? 'text-blue-400' : tipoTarjeta() === 'MC' ? 'text-red-400' : 'text-green-400'
-                        }`}>
-                          {tipoTarjeta()}
-                        </span>
+                    <div>
+                      <div className="relative">
+                        <input
+                          type="text" inputMode="numeric" placeholder="1234 5678 9012 3456"
+                          value={numTarjeta}
+                          onBlur={() => setNumTarjetaTouched(true)}
+                          onChange={e => setNumTarjeta(formatCardNumber(e.target.value))}
+                          className={`w-full bg-neutral-900 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600 pr-16 ${
+                            showCardNumberError ? 'border-red-500' : 'border-neutral-700'
+                          }`}
+                        />
+                        {cardValidation.card && (
+                          <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black ${
+                            cardValidation.card.type === 'visa' ? 'text-blue-400' : cardValidation.card.type === 'mastercard' ? 'text-red-400' : cardValidation.card.type === 'american-express' ? 'text-green-400' : 'text-orange-400'
+                          }`}>
+                            {cardValidation.card.niceType}
+                          </span>
+                        )}
+                      </div>
+                      {showCardNumberError && (
+                        <p className="text-red-400 text-xs mt-1 pl-1">{showCardNumberError}</p>
                       )}
                     </div>
-                    <input
-                      type="text" placeholder="Nombre del titular"
-                      value={nombreTarjeta}
-                      onChange={e => setNombreTarjeta(e.target.value.toUpperCase())}
-                      className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
-                    />
+
+                    <div>
+                      <input
+                        type="text" placeholder="Nombre del titular"
+                        value={nombreTarjeta}
+                        onBlur={() => setNombreTarjetaTouched(true)}
+                        onChange={e => setNombreTarjeta(e.target.value.toUpperCase())}
+                        className={`w-full bg-neutral-900 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600 ${
+                          showNombreError ? 'border-red-500' : 'border-neutral-700'
+                        }`}
+                      />
+                      {showNombreError && (
+                        <p className="text-red-400 text-xs mt-1 pl-1">{showNombreError}</p>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="text" inputMode="numeric" placeholder="MM/AA"
-                        value={expiracion}
-                        onChange={e => setExpiracion(formatExpiry(e.target.value))}
-                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
-                      />
-                      <input
-                        type="password" inputMode="numeric" placeholder="CVV" maxLength={4}
-                        value={cvv}
-                        onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
-                      />
+                      <div>
+                        <input
+                          type="text" inputMode="numeric" placeholder="MM/AA"
+                          value={expiracion}
+                          onBlur={() => setExpiracionTouched(true)}
+                          onChange={e => setExpiracion(formatExpiry(e.target.value))}
+                          className={`w-full bg-neutral-900 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600 ${
+                            showExpiryError ? 'border-red-500' : 'border-neutral-700'
+                          }`}
+                        />
+                        {showExpiryError && (
+                          <p className="text-red-400 text-xs mt-1 pl-1">{showExpiryError}</p>
+                        )}
+                      </div>
+                      <div>
+                        <input
+                          type="password" inputMode="numeric" placeholder="CVV"
+                          maxLength={cardValidation.card?.code?.size || 3}
+                          value={cvv}
+                          onBlur={() => setCvvTouched(true)}
+                          onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, cardValidation.card?.code?.size || 3))}
+                          className={`w-full bg-neutral-900 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600 ${
+                            showCvvError ? 'border-red-500' : 'border-neutral-700'
+                          }`}
+                        />
+                        {showCvvError && (
+                          <p className="text-red-400 text-xs mt-1 pl-1">{showCvvError}</p>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-neutral-600">
                       <span className="material-symbols-outlined text-sm text-green-500">lock</span>
