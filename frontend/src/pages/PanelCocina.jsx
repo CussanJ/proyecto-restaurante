@@ -77,6 +77,20 @@ export default function PanelCocina() {
     }
   };
 
+  const cancelarPedidoRestaurante = async (id) => {
+    if (!window.confirm('¿Estás seguro de que deseas cancelar este pedido?')) return;
+    try {
+      await pedidosApi.patch(`/pedidos/${id}/estado`, {
+        estado: 'cancelado',
+        origen: 'restaurante'
+      });
+      cargarActivos();
+    } catch (err) {
+      console.error('Error al cancelar pedido:', err.response?.data || err.message);
+      alert(err.response?.data?.mensaje || 'No se pudo cancelar el pedido.');
+    }
+  };
+
   const eliminarDelHistorial = async (id) => {
     if (!window.confirm('¿Eliminar este pedido del historial?')) return;
     try {
@@ -463,17 +477,26 @@ export default function PanelCocina() {
                     </div>
 
                     {/* Botón de acción */}
-                    <div className="p-4 bg-surface-container-high">
+                    <div className="p-4 bg-surface-container-high flex flex-col gap-2">
                       {accion ? (
-                        <button
-                          onClick={() => avanzarEstado(pedido)}
-                          className={`w-full font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 active:scale-95 ${accion.clase}`}
-                        >
-                          <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
-                            {accion.icon}
-                          </span>
-                          {accion.label}
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => avanzarEstado(pedido)}
+                            className={`flex-1 font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 active:scale-95 ${accion.clase}`}
+                          >
+                            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
+                              {accion.icon}
+                            </span>
+                            {accion.label}
+                          </button>
+                          <button
+                            onClick={() => cancelarPedidoRestaurante(pedido._id)}
+                            className="bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-400 font-bold p-3 rounded-lg transition-colors flex items-center justify-center active:scale-95"
+                            title="Cancelar Pedido"
+                          >
+                            <span className="material-symbols-outlined text-lg">cancel</span>
+                          </button>
+                        </div>
                       ) : (
                         <div className="text-center text-green-400 font-bold text-sm py-2 flex items-center justify-center gap-2">
                           <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>

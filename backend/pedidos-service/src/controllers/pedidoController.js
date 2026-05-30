@@ -147,7 +147,7 @@ const obtenerPedidoPorId = async (req, res) => {
 
 const cambiarEstado = async (req, res) => {
     try {
-        const { estado } = req.body;
+        const { estado, origen } = req.body;
 
         if (!estado || !ESTADOS_VALIDOS.includes(estado)) {
             return res.status(400).json({
@@ -155,17 +155,52 @@ const cambiarEstado = async (req, res) => {
             });
         }
 
-        const pedido = await Pedido.findByIdAndUpdate(
-            req.params.id,
-            { estado },
-            { new: true, runValidators: true }
-        );
+        const pedido = await Pedido.findById(req.params.id);
 
         if (!pedido) {
             return res.status(404).json({ mensaje: "Pedido no encontrado" });
         }
 
-        console.log(`[NOTIFICACION] Pedido ${pedido._id} cambio a estado: ${estado}`);
+        const estadoAnterior = pedido.estado;
+
+        // Validaciones específicas de cancelación
+        if (estado === 'cancelado') {
+            if (origen === 'cliente') {
+                if (estadoAnterior !== 'pendiente' && estadoAnterior !== 'aceptado') {
+                    return res.status(400).json({
+                        mensaje: "No se puede cancelar el pedido porque el restaurante ya comenzó la preparación o el pedido ya fue entregado/cancelado."
+                    });
+                }
+            } else {
+                // Por defecto o restaurante: no se puede cancelar si ya está entregado
+                if (estadoAnterior === 'entregado') {
+                    return res.status(400).json({
+                        mensaje: "No se puede cancelar un pedido que ya ha sido entregado."
+                    });
+                }
+            }
+        }
+
+        // Actualizar el estado
+        pedido.estado = estado;
+        await pedido.save();
+
+        console.log(`[NOTIFICACION] Pedido ${pedido._id} cambio de estado de ${estadoAnterior} a ${estado}`);
+
+        // Devolución de stock si cambia a cancelado desde un estado activo (diferente a cancelado)
+        if (estado === 'cancelado' && estadoAnterior !== 'cancelado') {
+            for (const item of pedido.detalle) {
+                try {
+                    await axios.patch(`${INVENTARIO_URL}/agregar-stock`, {
+                        productoId: item.productoId,
+                        cantidad: item.cantidad
+                    });
+                    console.log(`[INVENTARIO] Stock repuesto para producto ${item.productoId}: +${item.cantidad}`);
+                } catch (invErr) {
+                    console.warn(`[INVENTARIO] Error al reponer stock para ${item.productoId}:`, invErr.message);
+                }
+            }
+        }
 
         res.json({ mensaje: "Estado actualizado", pedido });
     } catch (error) {
