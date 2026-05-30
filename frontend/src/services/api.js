@@ -1,24 +1,19 @@
 import axios from 'axios';
 
-const host = window.location.hostname;
-
-const PRODUCTOS_PORT = import.meta.env.VITE_PRODUCTOS_PORT || 3001;
-const PEDIDOS_PORT = import.meta.env.VITE_PEDIDOS_PORT || 3003;
-const INVENTARIO_PORT = import.meta.env.VITE_INVENTARIO_PORT || 3002;
-const AUTH_PORT = import.meta.env.VITE_AUTH_PORT || 3004;
-
+// Al no poner http:// ni puertos, el navegador usa automáticamente 
+// el mismo protocolo (HTTP o HTTPS) y el mismo HOST desde el que cargó la página.
 export const productosApi = axios.create({
-  baseURL: `http://${host}:${PRODUCTOS_PORT}`,
+  baseURL: '/api/productos',
 });
 
 export const pedidosApi = axios.create({
-  baseURL: `http://${host}:${PEDIDOS_PORT}`,
+  baseURL: '/api/pedidos',
 });
 
 export const inventarioApi = axios.create({
-  baseURL: `http://${host}:${INVENTARIO_PORT}`,
+  baseURL: '/api/inventario',
 });
 
 export const authApi = axios.create({
-  baseURL: `http://${host}:${AUTH_PORT}`,
+  baseURL: '/api/auth', // Asegúrate de agregar esta ruta en tu nginx.conf si usas auth
 });
