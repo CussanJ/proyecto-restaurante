@@ -118,6 +118,8 @@ export default function Carrito() {
   const [nombreTarjetaTouched, setNombreTarjetaTouched] = useState(false);
   const [expiracionTouched, setExpiracionTouched] = useState(false);
   const [cvvTouched, setCvvTouched] = useState(false);
+  const [direccionTouched, setDireccionTouched] = useState(false);
+  const [referenciaTouched, setReferenciaTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   // Validaciones en tiempo real usando card-validator
@@ -149,10 +151,26 @@ export default function Carrito() {
       : null
   };
 
+  // Mensajes de error específicos para dirección
+  const errorsDireccion = {
+    direccion: !direccion.trim()
+      ? 'La dirección (calle y número) es requerida.'
+      : direccion.trim().length < 8
+      ? 'La dirección debe tener al menos 8 caracteres.'
+      : null,
+    referencia: !referencia.trim()
+      ? 'La colonia / referencia es requerida.'
+      : referencia.trim().length < 5
+      ? 'La colonia / referencia debe tener al menos 5 caracteres.'
+      : null
+  };
+
   const showCardNumberError = (numTarjetaTouched || submitted) && errors.numTarjeta;
   const showNombreError = (nombreTarjetaTouched || submitted) && errors.nombreTarjeta;
   const showExpiryError = (expiracionTouched || submitted) && errors.expiracion;
   const showCvvError = (cvvTouched || submitted) && errors.cvv;
+  const showDireccionError = (direccionTouched || submitted) && errorsDireccion.direccion;
+  const showReferenciaError = (referenciaTouched || submitted) && errorsDireccion.referencia;
 
   // Propina
   const [propinaPct, setPropinaPct] = useState(10);
@@ -209,7 +227,9 @@ export default function Carrito() {
 
   const solicitarConfirmacion = () => {
     if (items.length === 0) return;
-    if (!direccion.trim()) { setError('Por favor ingresa tu dirección de entrega.'); return; }
+    setSubmitted(true);
+    if (errorsDireccion.direccion) { setError(errorsDireccion.direccion); return; }
+    if (errorsDireccion.referencia) { setError(errorsDireccion.referencia); return; }
     const errPago = validarPago();
     if (errPago) { setError(errPago); return; }
     setError(null);
@@ -411,20 +431,37 @@ export default function Carrito() {
                   Dirección de entrega
                 </h3>
 
-                <input
-                  type="text"
-                  placeholder="Calle y número *"
-                  value={direccion}
-                  onChange={e => setDireccion(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
-                />
-                <input
-                  type="text"
-                  placeholder="Colonia / Referencia"
-                  value={referencia}
-                  onChange={e => setReferencia(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600"
-                />
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Calle y número *"
+                    value={direccion}
+                    onBlur={() => setDireccionTouched(true)}
+                    onChange={e => setDireccion(e.target.value)}
+                    className={`w-full bg-neutral-900 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600 ${
+                      showDireccionError ? 'border-red-500' : 'border-neutral-700'
+                    }`}
+                  />
+                  {showDireccionError && (
+                    <p className="text-red-400 text-xs mt-1 pl-1">{showDireccionError}</p>
+                  )}
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Colonia / Referencia *"
+                    value={referencia}
+                    onBlur={() => setReferenciaTouched(true)}
+                    onChange={e => setReferencia(e.target.value)}
+                    className={`w-full bg-neutral-900 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors placeholder-neutral-600 ${
+                      showReferenciaError ? 'border-red-500' : 'border-neutral-700'
+                    }`}
+                  />
+                  {showReferenciaError && (
+                    <p className="text-red-400 text-xs mt-1 pl-1">{showReferenciaError}</p>
+                  )}
+                </div>
 
                 <button
                   onClick={obtenerUbicacion}
