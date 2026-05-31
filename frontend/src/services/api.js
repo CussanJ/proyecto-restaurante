@@ -1,10 +1,7 @@
 import axios from 'axios';
 
-const host = window.location.hostname;
-const protocol = window.location.protocol;
-
-// Ahora todo pasa centralizado a través del puerto de Nginx (245)
-const GATEWAY_URL = `${protocol}//${host}:245`;
+// Al dejarlo vacío, el navegador usa automáticamente el protocolo, host y puerto actual (8103)
+const GATEWAY_URL = ''; 
 
 export const productosApi = axios.create({
   baseURL: `${GATEWAY_URL}/api/productos`,

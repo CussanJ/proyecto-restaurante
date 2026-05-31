@@ -4,8 +4,7 @@ services:
     image: mongo:8
     container_name: mongodb-e1b
     restart: unless-stopped
-    ports:
-      - "235:27017"
+    # Quitamos puertos expuestos, Nginx no los necesita afuera
     volumes:
       - mongodb_data:/data/db
     healthcheck:
@@ -19,13 +18,11 @@ services:
       context: ./backend/productos-service
     container_name: productos-service-e1b
     restart: unless-stopped
-    ports:
-      - "236:236"
     environment:
       PORT: 236
       MONGODB_URI: mongodb://mongodb:27017/productos_db
       MONGODB_URI_INVENTARIO: mongodb://mongodb:27017/inventario_db
-      BASE_URL: http://localhost:236
+      BASE_URL: http://localhost:8103/api/productos # Ajustado al puerto único
     volumes:
       - ./backend/productos-service:/app
       - /app/node_modules
@@ -39,8 +36,6 @@ services:
       context: ./backend/inventario-service
     container_name: inventario-service-e1b
     restart: unless-stopped
-    ports:
-      - "238:238"
     environment:
       PORT: 238
       MONGODB_URI: mongodb://mongodb:27017/inventario_db
@@ -56,8 +51,6 @@ services:
       context: ./backend/pedidos-service
     container_name: pedidos-service-e1b
     restart: unless-stopped
-    ports:
-      - "237:237"
     environment:
       PORT: 237
       MONGODB_URI: mongodb://mongodb:27017/pedidos_db
@@ -79,8 +72,6 @@ services:
       context: ./backend/auth-service
     container_name: auth-service-e1b
     restart: unless-stopped
-    ports:
-      - "239:239"
     environment:
       PORT: 239
       MONGODB_URI: mongodb://mongodb:27017/auth_db
@@ -102,8 +93,7 @@ services:
       context: ./frontend
     container_name: frontend-e1b
     restart: unless-stopped
-    ports:
-      - "8103:8103"
+    # Quitamos el puerto de aquí para que no choque con Nginx
     stdin_open: true
     tty: true
     environment:
@@ -117,13 +107,13 @@ services:
       - pedidos-service
       - auth-service
 
-  # --- NUEVO SERVICIO PROXY (NGINX) ---
+  # --- EL GATEWAY AHORA ES EL REY DEL PUERTO 8103 ---
   gateway:
     image: nginx:alpine
     container_name: gateway-e1b
     restart: unless-stopped
     ports:
-      - "245:80"   # <--- Ahora escucha públicamente en el puerto 245
+      - "8103:80"   # <--- Mapea el único puerto público al 80 interno de Nginx
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -132,13 +122,15 @@ services:
       - inventario-service
       - pedidos-service
       - auth-service
+      - dozzle
 
   dozzle:
     image: amir20/dozzle:latest
     container_name: dozzle-e1b
     restart: unless-stopped
-    ports:
-      - "240:8080"
+    # Quitamos puertos públicos
+    environment:
+      DOZZLE_BASE: /logs 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
