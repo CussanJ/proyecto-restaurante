@@ -1,0 +1,158 @@
+services:
+
+  mongodb:
+    image: mongo:8
+    container_name: mongodb
+    restart: unless-stopped
+
+    ports:
+      - "235:27017"
+
+    volumes:
+      - mongodb_data:/data/db
+
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  productos-service:
+    build:
+      context: ./backend/productos-service
+
+    container_name: productos-service
+    restart: unless-stopped
+
+    ports:
+      - "236:236"
+
+    environment:
+      PORT: 236
+      MONGODB_URI: mongodb://mongodb:27017/productos_db
+      MONGODB_URI_INVENTARIO: mongodb://mongodb:27017/inventario_db
+      BASE_URL: http://localhost:236
+
+    volumes:
+      - ./backend/productos-service:/app
+      - /app/node_modules
+      - ./backend/productos-service/uploads:/app/uploads
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  inventario-service:
+    build:
+      context: ./backend/inventario-service
+
+    container_name: inventario-service
+    restart: unless-stopped
+
+    ports:
+      - "238:238"
+
+    environment:
+      PORT: 238
+      MONGODB_URI: mongodb://mongodb:27017/inventario_db
+
+    volumes:
+      - ./backend/inventario-service:/app
+      - /app/node_modules
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  pedidos-service:
+    build:
+      context: ./backend/pedidos-service
+
+    container_name: pedidos-service
+    restart: unless-stopped
+
+    ports:
+      - "237:237"
+
+    environment:
+      PORT: 237
+      MONGODB_URI: mongodb://mongodb:27017/pedidos_db
+      PRODUCTOS_URL: http://productos-service:236/productos
+      INVENTARIO_URL: http://inventario-service:238/inventario
+
+    volumes:
+      - ./backend/pedidos-service:/app
+      - /app/node_modules
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      productos-service:
+        condition: service_started
+      inventario-service:
+        condition: service_started
+
+  auth-service:
+    build:
+      context: ./backend/auth-service
+
+    container_name: auth-service
+    restart: unless-stopped
+
+    ports:
+      - "239:239"
+
+    env_file:
+      - ./backend/auth-service/.env
+
+    environment:
+      PORT: 239
+      MONGODB_URI: mongodb://mongodb:27017/auth_db
+      FRONTEND_URL: http://localhost:8103
+      JWT_SECRET: SUPER_SECRET_HERE
+
+    volumes:
+      - ./backend/auth-service:/app
+      - /app/node_modules
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+
+    container_name: frontend
+    restart: unless-stopped
+
+    ports:
+      - "8103:8103"
+
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+    depends_on:
+      - productos-service
+      - inventario-service
+      - pedidos-service
+      - auth-service
+
+  dozzle:
+    image: amir20/dozzle:latest
+
+    container_name: dozzle
+    restart: unless-stopped
+
+    ports:
+      - "240:8080"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  mongodb_data:
