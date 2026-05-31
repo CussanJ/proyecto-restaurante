@@ -102,12 +102,13 @@ services:
     ports:
       - "239:239"
 
-    env_file:
-      - ./backend/auth-service/.env
-
     environment:
       PORT: 239
       MONGODB_URI: mongodb://mongodb:27017/auth_db
+      EMAIL_SERVICE: smtp.mailersend.net
+      EMAIL_USER: MS_mFX4T0@test-ywj2lpn0qn1g7oqz.mlsender.net
+      EMAIL_PASS: mssp.hcJlsmK.yzkq3405mv3gd796.xRfqf3t
+      EMAIL_PORT: 587
       FRONTEND_URL: http://localhost:8103
       JWT_SECRET: SUPER_SECRET_HERE
 
@@ -128,6 +129,9 @@ services:
 
     ports:
       - "8103:8103"
+
+    stdin_open: true
+    tty: true
 
     environment:
       CHOKIDAR_USEPOLLING: "true"
