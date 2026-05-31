@@ -498,10 +498,17 @@ const agregarStock = async (item) => {
               <div className="flex items-center justify-between bg-neutral-800 rounded-lg px-4 py-3">
                 <span className="text-sm font-semibold text-on-surface">Disponible en el menú</span>
                 <button
+                  type="button"
                   onClick={() => setForm(f => ({ ...f, disponible: !f.disponible }))}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${form.disponible ? 'bg-orange-500' : 'bg-neutral-600'}`}
+                  className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${
+                    form.disponible ? 'bg-orange-500' : 'bg-neutral-600'
+                  }`}
                 >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.disponible ? 'translate-x-7' : 'translate-x-1'}`} />
+                  <span
+                    className={`w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ease-in-out ${
+                      form.disponible ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
                 </button>
               </div>
 

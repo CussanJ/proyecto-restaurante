@@ -4,7 +4,6 @@ services:
     image: mongo:8
     container_name: mongodb-e1b
     restart: unless-stopped
-    # Quitamos puertos expuestos, Nginx no los necesita afuera
     volumes:
       - mongodb_data:/data/db
     healthcheck:
@@ -22,11 +21,9 @@ services:
       PORT: 236
       MONGODB_URI: mongodb://mongodb:27017/productos_db
       MONGODB_URI_INVENTARIO: mongodb://mongodb:27017/inventario_db
-      BASE_URL: http://localhost:8103/api/productos # Ajustado al puerto único
+      BASE_URL: https://equipo1b.itolab.lat/api/productos
     volumes:
-      - ./backend/productos-service:/app
-      - /app/node_modules
-      - ./backend/productos-service/uploads:/app/uploads
+      - ./backend/productos-service/uploads:/app/uploads 
     depends_on:
       mongodb:
         condition: service_healthy
@@ -39,9 +36,6 @@ services:
     environment:
       PORT: 238
       MONGODB_URI: mongodb://mongodb:27017/inventario_db
-    volumes:
-      - ./backend/inventario-service:/app
-      - /app/node_modules
     depends_on:
       mongodb:
         condition: service_healthy
@@ -56,9 +50,6 @@ services:
       MONGODB_URI: mongodb://mongodb:27017/pedidos_db
       PRODUCTOS_URL: http://productos-service:236/productos
       INVENTARIO_URL: http://inventario-service:238/inventario
-    volumes:
-      - ./backend/pedidos-service:/app
-      - /app/node_modules
     depends_on:
       mongodb:
         condition: service_healthy
@@ -77,13 +68,11 @@ services:
       MONGODB_URI: mongodb://mongodb:27017/auth_db
       EMAIL_SERVICE: smtp.mailersend.net
       EMAIL_USER: MS_mFX4T0@test-ywj2lpn0qn1g7oqz.mlsender.net
+      # RECOMENDACIÓN: Mueve estos secretos a un archivo .env
       EMAIL_PASS: mssp.hcJlsmK.yzkq3405mv3gd796.xRfqf3t
       EMAIL_PORT: 587
-      FRONTEND_URL: http://localhost:8103
+      FRONTEND_URL: https://equipo1b.itolab.lat/
       JWT_SECRET: SUPER_SECRET_HERE
-    volumes:
-      - ./backend/auth-service:/app
-      - /app/node_modules
     depends_on:
       mongodb:
         condition: service_healthy
@@ -93,27 +82,21 @@ services:
       context: ./frontend
     container_name: frontend-e1b
     restart: unless-stopped
-    # Quitamos el puerto de aquí para que no choque con Nginx
     stdin_open: true
     tty: true
-    environment:
-      CHOKIDAR_USEPOLLING: "true"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    # Eliminados CHOKIDAR y los volúmenes de desarrollo.
     depends_on:
       - productos-service
       - inventario-service
       - pedidos-service
       - auth-service
 
-  # --- EL GATEWAY AHORA ES EL REY DEL PUERTO 8103 ---
   gateway:
     image: nginx:alpine
     container_name: gateway-e1b
     restart: unless-stopped
     ports:
-      - "8103:80"   # <--- Mapea el único puerto público al 80 interno de Nginx
+      - "8103:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -128,7 +111,6 @@ services:
     image: amir20/dozzle:latest
     container_name: dozzle-e1b
     restart: unless-stopped
-    # Quitamos puertos públicos
     environment:
       DOZZLE_BASE: /logs 
     volumes:
