@@ -1,0 +1,34 @@
+import { useNavigate } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+
+export default function Header() {
+  const { items } = useCart();
+  const { admin } = useAuth();
+  const navigate = useNavigate();
+  const totalItems = items.reduce((s, i) => s + i.cantidad, 0);
+
+  return (
+    <header className="bg-neutral-950 border-b border-neutral-800 shadow-sm flex justify-between items-center w-full px-6 py-4 sticky top-0 z-40">
+      <img
+        src="/logo.png"
+        alt="La Terraza del Mar"
+        className="h-14 w-auto object-contain cursor-pointer"
+        onClick={() => navigate('/')}
+      />
+      <div className="flex items-center gap-2">
+        <button
+          className="relative text-neutral-400 hover:bg-neutral-900 p-2 rounded-full transition-colors"
+          onClick={() => navigate('/carrito')}
+        >
+          <span className="material-symbols-outlined">shopping_cart</span>
+          {totalItems > 0 && (
+            <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+              {totalItems}
+            </span>
+          )}
+        </button>
+      </div>
+    </header>
+  );
+}
