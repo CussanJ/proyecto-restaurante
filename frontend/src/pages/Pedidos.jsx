@@ -5,25 +5,50 @@ import BottomNav from '../components/BottomNav';
 
 export default function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
+  const [cargando, setCargando] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const guardados = JSON.parse(localStorage.getItem('pedidos') || '[]');
-    setPedidos(guardados);
-  }, []);
+    async function verificarPedidos() {
+      // 1. Obtener los pedidos que están en el LocalStorage
+      const guardados = JSON.parse(localStorage.getItem('pedidos') || '[]');
+      
+      if (guardados.length === 0) {
+        setPedidos([]);
+        setCargando(false);
+        return;
+      }
 
-  const colorEstado = (estado) => {
-    switch (estado) {
-      case 'pendiente':
-        return 'text-yellow-400 bg-yellow-500/10';
-      case 'en_camino':
-        return 'text-blue-400 bg-blue-500/10';
-      case 'entregado':
-        return 'text-green-400 bg-green-500/10';
-      default:
-        return 'text-neutral-400 bg-neutral-800';
+      const pedidosValidos = [];
+
+      // 2. Consultar uno a uno en el backend de Docker para ver si existen
+      for (const pedido of guardados) {
+        try {
+          // Consultamos a tu microservicio de pedidos en el puerto 3003
+          const response = await fetch(`http://localhost:3003/pedidos/${pedido.id}`);
+          
+          if (response.ok) {
+            // Si el servidor responde que sí existe, lo dejamos en la lista
+            pedidosValidos.push(pedido);
+          }
+        } catch (error) {
+          console.error(`Error verificando el pedido ${pedido.id}:`, error);
+          // Si el servidor no responde (offline), mantenemos el pedido por si acaso
+          pedidosValidos.push(pedido);
+        }
+      }
+
+      // 3. Si hubo cambios (pedidos viejos eliminados), actualizamos el LocalStorage
+      if (pedidosValidos.length !== guardados.length) {
+        localStorage.setItem('pedidos', JSON.stringify(pedidosValidos));
+      }
+
+      setPedidos(pedidosValidos);
+      setCargando(false);
     }
-  };
+
+    verificarPedidos();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background text-on-surface">
@@ -54,7 +79,11 @@ export default function Pedidos() {
           </div>
         </div>
 
-        {pedidos.length === 0 ? (
+        {cargando ? (
+          <div className="text-center py-20 text-neutral-500">
+            <p className="animate-pulse">Verificando historial de pedidos...</p>
+          </div>
+        ) : pedidos.length === 0 ? (
           <div className="text-center py-20">
             <span className="material-symbols-outlined text-6xl text-neutral-700">
               receipt_long
@@ -84,7 +113,7 @@ export default function Pedidos() {
 
                   <span
                     className="px-3 py-1 rounded-full text-xs font-bold text-green-400 bg-green-500/10"
-                    >
+                  >
                     Pagado
                   </span>
                 </div>
@@ -107,7 +136,7 @@ export default function Pedidos() {
                   ))}
                 </div>
 
-            <div className="mt-4 pt-4 border-t border-neutral-800 flex justify-between items-end">
+                <div className="mt-4 pt-4 border-t border-neutral-800 flex justify-between items-end">
                   <div>
                     <p className="text-xs text-neutral-500">
                       Dirección
@@ -119,26 +148,26 @@ export default function Pedidos() {
                   </div>
 
                   <div className="text-right">
-                {(() => {
-                  const subtotal = pedido.items.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
-                  const propinaCalc = pedido.propina ?? (pedido.total > subtotal + 0.01 ? pedido.total - subtotal : 0);
-                  const porcentajePropina = subtotal > 0 ? Math.round((propinaCalc / subtotal) * 100) : 0;
-                  return (
-                    <>
-                      {propinaCalc > 0 && (
-                        <p className="text-xs text-neutral-500 mb-1">
-                          + ${propinaCalc.toFixed(2)} propina ({porcentajePropina}%)
-                        </p>
-                      )}
-                      <p className="text-xs text-neutral-500">
-                        Total
-                      </p>
-                      <p className="text-orange-500 font-black text-lg">
-                        ${pedido.total.toFixed(2)}
-                      </p>
-                    </>
-                  );
-                })()}
+                    {(() => {
+                      const subtotal = pedido.items.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
+                      const propinaCalc = pedido.propina ?? (pedido.total > subtotal + 0.01 ? pedido.total - subtotal : 0);
+                      const porcentajePropina = subtotal > 0 ? Math.round((propinaCalc / subtotal) * 100) : 0;
+                      return (
+                        <>
+                          {propinaCalc > 0 && (
+                            <p className="text-xs text-neutral-500 mb-1">
+                              + ${propinaCalc.toFixed(2)} propina ({porcentajePropina}%)
+                            </p>
+                          )}
+                          <p className="text-xs text-neutral-500">
+                            Total
+                          </p>
+                          <p className="text-orange-500 font-black text-lg">
+                            ${pedido.total.toFixed(2)}
+                          </p>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
